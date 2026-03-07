@@ -44,7 +44,10 @@ def get_logger(agent_name: str = "system") -> logging.Logger:
         os.makedirs(log_dir, exist_ok=True)
         log_file = os.path.join(log_dir, "warroom.log")
         
-        handler = logging.FileHandler(log_file, encoding='utf-8')
+        from logging.handlers import RotatingFileHandler
+        
+        # Cap the log file at 5MB with 1 backup, automatically deleting old bloat
+        handler = RotatingFileHandler(log_file, maxBytes=5*1024*1024, backupCount=1, encoding='utf-8')
         handler.setFormatter(JsonFormatter())
         logger.addHandler(handler)
         logger.setLevel(logging.INFO)

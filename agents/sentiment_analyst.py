@@ -45,7 +45,7 @@ class SentimentAnalyst:
     """
 
     def __init__(self):
-        self.llm = get_llm()
+        self.llm = get_llm("parsing")
         self._prev_sentiments = {}  # Track for momentum
 
     def analyze(self, news_events: list, target_tickers: list[str]) -> dict:

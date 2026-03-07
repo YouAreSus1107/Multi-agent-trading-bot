@@ -56,7 +56,15 @@ YOU MUST RESPOND WITH VALID JSON ONLY.
             "impact": 8,
             "affected_tickers": ["PLTR", "CRWD"],
             "direction": "bullish",
-            "reasoning": "Why these tickers will move"
+            "reasoning": "Why these tickers will move",
+            "deep_context": [
+                "Bullet 1: In-depth detail about the news and source...",
+                "Bullet 2: Specific numbers, earnings stats, or contract values...",
+                "Bullet 3: Historical correlation or similar past events...",
+                "Bullet 4: Potential macro or geopolitical ripple effects...",
+                "Bullet 5: Reddit/Social sentiment surrounding this event if applicable...",
+                "... (provide up to 8-10 rich, detailed bullet points per event so the Research Team has maximum context)"
+            ]
         }
     ],
     "niche_tickers_discovered": ["PLTR", "RKLB", "IONQ"],
@@ -77,9 +85,9 @@ class NewsAnalyst:
     """
 
     def __init__(self):
-        self.llm = get_llm()
+        self.llm = get_llm("parsing")
         self.news_service = NewsService()
-        self.seen_headlines = self._load_seen_headlines()
+        self.seen_urls = self._load_seen_urls()
         os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
 
     def analyze(self) -> dict:
@@ -93,18 +101,18 @@ class NewsAnalyst:
         # Deduplicate
         new_items = []
         for item in all_news_items:
-            title = item.get("title", "")
-            if not title or title in self.seen_headlines:
+            url = item.get("url", "")
+            if not url or url in self.seen_urls:
                 continue
-            self.seen_headlines.add(title)
+            self.seen_urls.add(url)
             new_items.append(item)
 
         if not new_items:
             logger.info("News Analyst: No new headlines since last cycle")
             return self._empty_result("No new headlines/events discovered")
 
-        # Persist updated seen headlines immediately so we don't re-process
-        self._save_seen_headlines()
+        # Persist updated seen URLs immediately so we don't re-process
+        self._save_seen_urls()
 
         # Format news for LLM
         news_text = "\n".join([
@@ -176,6 +184,7 @@ NOT ETFs like XLE or GLD. Find the specific companies affected."""
             log_entry = {
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "events_count": len(result.get("events", [])),
+                "events": result.get("events", []),
                 "niche_tickers": result.get("niche_tickers_discovered", []),
                 "sector_breakdown": sectors,
                 "market_mood": result.get("market_mood", "unknown"),
@@ -185,8 +194,8 @@ NOT ETFs like XLE or GLD. Find the specific companies affected."""
             }
             with open(LOG_FILE, "a", encoding="utf-8") as f:
                 f.write(json.dumps(log_entry, default=str) + "\n")
-            # Also persist seen headlines after successful analysis
-            self._save_seen_headlines()
+            # Also persist seen URLs after successful analysis
+            self._save_seen_urls()
         except Exception as e:
             logger.warning(f"Failed to write news log: {e}")
 
@@ -207,33 +216,33 @@ NOT ETFs like XLE or GLD. Find the specific companies affected."""
         except Exception:
             return []
 
-    def _load_seen_headlines(self) -> set:
-        """Load persisted seen headlines from disk."""
+    def _load_seen_urls(self) -> set:
+        """Load persisted seen urls from disk."""
         try:
             if os.path.exists(SEEN_FILE):
                 with open(SEEN_FILE, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    return set(data.get("headlines", []))
+                    return set(data.get("urls", []))
         except Exception as e:
-            logger.warning(f"Failed to load seen headlines: {e}")
+            logger.warning(f"Failed to load seen urls: {e}")
         return set()
 
-    def _save_seen_headlines(self):
-        """Persist seen headlines to disk — pretty-printed with metadata header."""
+    def _save_seen_urls(self):
+        """Persist seen urls to disk — pretty-printed with metadata header."""
         try:
-            headlines_list = sorted(self.seen_headlines)[-500:]
+            urls_list = sorted(self.seen_urls)[-500:]
             data = {
                 "_meta": {
-                    "count": len(headlines_list),
+                    "count": len(urls_list),
                     "last_updated": datetime.now(timezone.utc).isoformat(),
-                    "note": "Seen headlines de-duplication cache. Last 500 entries kept."
+                    "note": "Seen URL de-duplication cache. Last 500 entries kept."
                 },
-                "headlines": headlines_list,
+                "urls": urls_list,
             }
             with open(SEEN_FILE, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
         except Exception as e:
-            logger.warning(f"Failed to save seen headlines: {e}")
+            logger.warning(f"Failed to save seen urls: {e}")
 
     def _empty_result(self, reason: str) -> dict:
         return {

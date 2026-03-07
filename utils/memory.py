@@ -72,8 +72,8 @@ class CycleMemory:
             "timestamp": datetime.now(timezone.utc).isoformat(),
         })
 
-        # Keep last 100 trades
-        self.data["trade_history"] = self.data["trade_history"][-100:]
+        # Keep last 25 trades (reduced from 100 to prevent context bloat)
+        self.data["trade_history"] = self.data["trade_history"][-25:]
         self._save()
         logger.info(f"Memory: recorded BUY thesis for {ticker} @ ${entry_price}")
 
@@ -93,9 +93,8 @@ class CycleMemory:
             "timestamp": datetime.now(timezone.utc).isoformat(),
         })
 
-        # Remove thesis for closed position
-        self.data["position_theses"].pop(ticker, None)
-        self.data["trade_history"] = self.data["trade_history"][-100:]
+        # Keep last 25 trades (reduced from 100 to prevent context bloat)
+        self.data["trade_history"] = self.data["trade_history"][-25:]
         self._save()
         pl_str = f"{realized_pl_pct:+.2f}%" if realized_pl_pct else ""
         logger.info(f"Memory: recorded SELL for {ticker} @ ${exit_price} {pl_str}")
@@ -110,8 +109,8 @@ class CycleMemory:
         })
         self.data["cycle_count"] = cycle
 
-        # Keep last 30 summaries (extended from 20 for better anti-repeat tracking)
-        self.data["cycle_summaries"] = self.data["cycle_summaries"][-30:]
+        # Keep last 15 summaries (reduced from 30 to prevent context bloat)
+        self.data["cycle_summaries"] = self.data["cycle_summaries"][-15:]
         self._save()
 
     def get_position_thesis(self, ticker: str) -> dict:

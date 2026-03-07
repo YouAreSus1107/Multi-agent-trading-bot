@@ -55,6 +55,9 @@ class NewsService:
         google_slots = 3 if self._tavily_exhausted else 1
         all_news.extend(self._fetch_google_news_rss(num_slots=google_slots))
 
+        # Source 6: Reddit chatter (WallStreetBets, Stocks)
+        all_news.extend(self._fetch_reddit(max_results=10))
+
         # Deduplicate
         seen_titles = set()
         unique_news = []
@@ -357,6 +360,79 @@ class NewsService:
 
         logger.info(f"Google News RSS [{sector_name}]: {len(news_items)} articles")
         return news_items
+
+    def _fetch_reddit(self, max_results: int = 10) -> list[dict]:
+        """Fetch trending posts from WallStreetBets and Stocks subreddits."""
+        news_items = []
+        subreddits = ["wallstreetbets", "stocks", "investing"]
+        try:
+            for sub in subreddits:
+                # Grab the top posts of the day
+                url = f"https://www.reddit.com/r/{sub}/top.json?limit=5&t=day"
+                req = urllib.request.Request(
+                    url,
+                    headers={"User-Agent": "WarRoomBot/2.0 (by /u/trader)"}
+                )
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    data = json.loads(resp.read().decode())
+                
+                for child in data.get("data", {}).get("children", []):
+                    post = child.get("data", {})
+                    score = post.get("score", 0)
+                    upvote_ratio = post.get("upvote_ratio", 0)
+                    
+                    # Ensure it's a decently popular post
+                    if score <= 50 or upvote_ratio <= 0.7:
+                        continue
+                        
+                    title = post.get("title", "")
+                    
+                    if not post.get("is_self", True) and post.get("url"):
+                        link_url = post.get("url", "")
+                        text = f"[External Link: {link_url}]\n"
+                        try:
+                            # Try to fetch and parse the article text
+                            resp = requests.get(link_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=4)
+                            if resp.status_code == 200:
+                                from bs4 import BeautifulSoup
+                                soup = BeautifulSoup(resp.text, "html.parser")
+                                paragraphs = [p.get_text().strip() for p in soup.find_all("p")]
+                                article_text = " ".join([p for p in paragraphs if p]).strip()
+                                if len(article_text) > 50:
+                                    text += article_text[:400]
+                                else:
+                                    text += "No readable article text found."
+                            else:
+                                text += f"Failed to fetch content (HTTP {resp.status_code})."
+                        except Exception as e:
+                            text += "Failed to load external link due to generic error or timeout."
+                    else:
+                        text = post.get("selftext", "")
+                        # Require at least some meaningful DD/text (e.g., > 100 chars)
+                        if len(text) < 100:
+                            continue
+                        text = text[:400] # Grab first 400 chars of DD
+                        
+                    content_str = f"{title}\n{text}"
+                    
+                    # Deduplication URLs: Link posts use the external requested URL, self-posts use the reddit permalink
+                    final_url = post.get("url", "") if not post.get("is_self", True) else f"https://reddit.com{post.get('permalink', '')}"
+                    
+                    news_items.append({
+                        "title": f"[Reddit r/{sub}] {title}",
+                        "content": content_str,
+                        "url": final_url,
+                        "source": f"reddit/r/{sub}",
+                        "relevance_score": 0.85,
+                        "category": "social",
+                        "provider": "reddit"
+                    })
+                        
+            logger.info(f"Reddit API: fetched {len(news_items)} trending text posts")
+            return news_items[:max_results]
+        except Exception as e:
+            logger.warning(f"Reddit fetch failed (non-critical): {e}")
+            return []
 
     def _build_query(self) -> str:
         query = " OR ".join(WAR_KEYWORDS[:8])

@@ -354,10 +354,10 @@ Respond with JSON: {{"watch_list": [], "overnight_risks": [], "tomorrow_themes":
         if fund_list:
             parts.append(f"\nFUNDAMENTALS:\n{json.dumps(fund_list[:8], indent=2, default=str)}")
 
-        # News events
-        events = news.get("events", [])[:5]
+        # News events (expanded to provide rich context to the debate)
+        events = news.get("events", [])[:15]
         if events:
-            parts.append(f"\nKEY NEWS:\n{json.dumps(events, indent=2, default=str)}")
+            parts.append(f"\nKEY NEWS & CATALYSTS (RICH CONTEXT):\n{json.dumps(events, indent=2, default=str)}")
 
         # Sentiment
         sents = sent.get("ticker_sentiments", {})
@@ -409,29 +409,45 @@ Respond with JSON: {{"watch_list": [], "overnight_risks": [], "tomorrow_themes":
     def _write_log(self, bull: dict, bear: dict, decision: dict, cycle: int):
         try:
             ts = datetime.now(timezone.utc).isoformat()
-            decisions_detail = [
-                {
-                    "ticker": d.get("ticker", ""),
-                    "action": d.get("action", ""),
-                    "tier": d.get("tier", ""),
-                    "sector": d.get("sector", ""),
-                    "conviction": d.get("conviction", 0),
+            
+            # Handle overnight prep_research format
+            if "prep_research" in decision:
+                prep = decision["prep_research"]
+                log_entry = {
+                    "_cycle_header": f"=== CYCLE {cycle:03d} (OVERNIGHT) | {ts} ===",
+                    "timestamp": ts,
+                    "cycle": cycle,
+                    "watch_list": prep.get("watch_list", []),
+                    "overnight_risks": prep.get("overnight_risks", []),
+                    "tomorrow_themes": prep.get("tomorrow_themes", []),
+                    "prep_notes": str(prep.get("prep_notes", ""))[:300]
                 }
-                for d in decision.get("decisions", [])
-            ]
-            log_entry = {
-                "_cycle_header": f"=== CYCLE {cycle:03d} | {ts} ===",
-                "timestamp": ts,
-                "cycle": cycle,
-                "bull_top_picks": bull.get("top_picks", []),
-                "bear_avoid_list": bear.get("avoid_list", []),
-                "decisions": decisions_detail,
-                "decisions_summary": [d["ticker"] + ":" + d["action"] for d in decisions_detail],
-                "sectors_covered": decision.get("sectors_covered", []),
-                "market_stance": decision.get("market_stance", "unknown"),
-                "strategy": decision.get("overall_strategy", "")[:300],
-                "research_notes": decision.get("research_notes", "")[:200],
-            }
+            else:
+                # Standard daytime debate format
+                decisions_detail = [
+                    {
+                        "ticker": d.get("ticker", ""),
+                        "action": d.get("action", ""),
+                        "tier": d.get("tier", ""),
+                        "sector": d.get("sector", ""),
+                        "conviction": d.get("conviction", 0),
+                    }
+                    for d in decision.get("decisions", [])
+                ]
+                log_entry = {
+                    "_cycle_header": f"=== CYCLE {cycle:03d} | {ts} ===",
+                    "timestamp": ts,
+                    "cycle": cycle,
+                    "bull_top_picks": bull.get("top_picks", []),
+                    "bear_avoid_list": bear.get("avoid_list", []),
+                    "decisions": decisions_detail,
+                    "decisions_summary": [d["ticker"] + ":" + d["action"] for d in decisions_detail],
+                    "sectors_covered": decision.get("sectors_covered", []),
+                    "market_stance": decision.get("market_stance", "unknown"),
+                    "strategy": decision.get("overall_strategy", "")[:300],
+                    "research_notes": decision.get("research_notes", "")[:200],
+                }
+                
             with open(LOG_FILE, "a", encoding="utf-8") as f:
                 f.write(json.dumps(log_entry, default=str) + "\n")
         except Exception as e:

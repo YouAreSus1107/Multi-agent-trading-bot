@@ -50,18 +50,23 @@ MIN_CALL_INTERVAL = 3.5
 class FailoverLLM:
     """Wraps 7 LLM providers with automatic failover on rate limits / errors."""
 
-    def __init__(self):
+    def __init__(self, role="default"):
+        self.role = role
         self.providers = self._build_provider_chain()
         self.current_provider_name = "none"
         self._error_counts = {}
         self._last_call_time = 0  # Track last call for rate limiting
 
     def _build_provider_chain(self) -> list[tuple[str, object]]:
-        """Build chain: Puter → OpenAI → OpenRouter → Cerebras → Groq → Gemini."""
+        """Build chain based on role."""
         chain = []
 
-        # Priority order: Working APIs first, then free/rate-limited APIs
-        order = ["openai", "groq", "puter", "openrouter", "cerebras", "gemini", "nvidia"]
+        if self.role == "parsing":
+            # Prioritize free/fast models for data extraction (News, Sentiment)
+            order = ["groq", "gemini", "puter", "openrouter", "cerebras", "nvidia", "openai"]
+        else:
+            # Prioritize heavy reasoning models for logic (Research, Risk)
+            order = ["openai", "puter", "groq", "openrouter", "cerebras", "gemini", "nvidia"]
 
         for provider in order:
             llm = self._create_provider(provider)
@@ -70,9 +75,7 @@ class FailoverLLM:
 
         if not chain:
             raise ValueError(
-                "No LLM providers available. Set at least one of: "
-                "PUTER_API_TOKEN, OPENAI_API_KEY, OPENROUTER_API_KEY, "
-                "CEREBRAS_API_KEY, GROQ_API_KEY, GEMINI_API_KEY"
+                "No LLM providers available. Set at least one API key."
             )
         return chain
 
@@ -188,13 +191,12 @@ class FailoverLLM:
         }
 
 
-_failover_llm = None
+_llm_instances = {}
 
 
-def get_llm():
-    global _failover_llm
-    if _failover_llm is None:
-        _failover_llm = FailoverLLM()
-        providers = [name for name, _ in _failover_llm.providers]
-        logger.info(f"LLM failover chain: {' -> '.join(providers)}")
-    return _failover_llm
+def get_llm(role="default"):
+    if role not in _llm_instances:
+        _llm_instances[role] = FailoverLLM(role=role)
+        providers = [name for name, _ in _llm_instances[role].providers]
+        logger.info(f"LLM failover chain ({role}): {' -> '.join(providers)}")
+    return _llm_instances[role]
