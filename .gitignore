@@ -1,0 +1,15 @@
+# War-Room Bot
+*.pyc
+__pycache__/
+.env
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.vscode/
+.idea/
+venv/
+data/
+reports/
+logs/
+.venv/
