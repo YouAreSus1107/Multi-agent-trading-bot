@@ -249,11 +249,15 @@ def run_market_closed_mode(cycle: int):
         watch = prep.get("watch_list", [])
         risks = prep.get("overnight_risks", [])
 
+        # Robust string extraction in case LLM returns dicts instead of strings
+        watch_strs = [str(w.get("ticker", w)) if isinstance(w, dict) else str(w) for w in watch]
+        risk_strs = [str(r.get("risk", r.get("description", r))) if isinstance(r, dict) else str(r) for r in risks]
+
         console.print(Panel(
             f"[bold cyan]OVERNIGHT RESEARCH[/bold cyan]\n"
-            f"[green]Watch List:[/green] {', '.join(watch[:8]) if watch else 'None'}\n"
-            f"[red]Risks:[/red] {', '.join(r[:60] for r in risks[:3]) if risks else 'None'}\n"
-            f"[dim]{prep.get('prep_notes', '')[:200]}[/dim]",
+            f"[green]Watch List:[/green] {', '.join(w[:8] for w in watch_strs[:8]) if watch_strs else 'None'}\n"
+            f"[red]Risks:[/red] {', '.join(r[:60] for r in risk_strs[:3]) if risk_strs else 'None'}\n"
+            f"[dim]{str(prep.get('prep_notes', ''))[:200]}[/dim]",
             border_style="cyan",
             box=box.ROUNDED,
             expand=False,
@@ -436,6 +440,8 @@ def main():
                     # Deep sleep if it's the weekend or after 5pm/before 8am
                     if now_ny.weekday() >= 5 or now_ny.hour >= 17 or now_ny.hour < 8:
                         run_market_closed_mode(cycle)
+                        next_run = _now_ny() + timedelta(seconds=3600)
+                        console.print(f"[dim cyan]💤 Sleeping for 60m... Next overnight research at {next_run.strftime('%H:%M')} ET[/dim cyan]")
                         time.sleep(3600)  # Sleep for 1 hour
                     else:
                         time.sleep(300)   # Sleep 5 minutes closer to the active windows
