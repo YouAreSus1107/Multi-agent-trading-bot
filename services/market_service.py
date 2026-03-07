@@ -12,6 +12,7 @@ from alpaca.data.requests import StockBarsRequest, StockLatestQuoteRequest
 from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
 from config import FINNHUB_API_KEY, ALPACA_API_KEY, ALPACA_SECRET_KEY
 from utils.logger import get_logger
+from utils.rate_limiter import retry_on_rate_limit
 from datetime import datetime, timedelta, timezone
 
 logger = get_logger("market_service")
@@ -28,6 +29,7 @@ class MarketService:
             secret_key=ALPACA_SECRET_KEY,
         )
 
+    @retry_on_rate_limit(max_retries=3, initial_backoff=2.0)
     def get_quote(self, ticker: str) -> dict:
         """
         Get a real-time quote for a ticker.
@@ -72,6 +74,7 @@ class MarketService:
 
         return {}
 
+    @retry_on_rate_limit(max_retries=3, initial_backoff=2.0)
     def get_intraday_bars(self, ticker: str, timeframe_minutes: int = 1, days_back: int = 2) -> pd.DataFrame:
         """
         Fetch intraday bars (1-min or 5-min) as a pandas DataFrame.
@@ -140,7 +143,7 @@ class MarketService:
         logger.error(f"No {timeframe_minutes}m intraday data for {ticker}")
         return empty
 
-
+    @retry_on_rate_limit(max_retries=3, initial_backoff=2.0)
     def get_candles(
         self, ticker: str, resolution: str = "D",
         from_ts: int = None, to_ts: int = None,
@@ -231,6 +234,7 @@ class MarketService:
         logger.error(f"No candle data available for {ticker} (all 3 sources failed)")
         return empty
 
+    @retry_on_rate_limit(max_retries=3, initial_backoff=2.0)
     def get_vix(self) -> float:
         """
         Get the current VIX (Volatility Index) level.

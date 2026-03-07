@@ -6,6 +6,7 @@ Sources: Tavily (war + market), Polymarket (predictions), Google News RSS (free 
 from tavily import TavilyClient
 from config import TAVILY_API_KEY, WAR_KEYWORDS, MARKET_KEYWORDS, CATALYST_KEYWORDS, ALPACA_API_KEY, ALPACA_SECRET_KEY
 from utils.logger import get_logger
+from utils.rate_limiter import retry_on_rate_limit
 import urllib.request
 import json
 import requests
@@ -172,6 +173,7 @@ class NewsService:
                 logger.warning(f"Tavily catalyst fetch failed: {e}")
             return []
 
+    @retry_on_rate_limit(max_retries=3, initial_backoff=2.0)
     def _fetch_alpaca_news_fallback(self, max_results: int = 20) -> list[dict]:
         """Fallback to Alpaca's Market News API when Tavily is rate-limited."""
         try:
@@ -183,7 +185,9 @@ class NewsService:
             }
             resp = requests.get(url, headers=headers, timeout=5)
             
-            if resp.status_code != 200:
+            if resp.status_code == 429:
+                raise Exception("Alpaca API rate limit HTTP 429")
+            elif resp.status_code != 200:
                 logger.warning(f"Alpaca news fallback failed: {resp.status_code} - {resp.text}")
                 return []
                 

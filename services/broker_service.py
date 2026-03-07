@@ -8,6 +8,7 @@ from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce, OrderStatus
 from config import ALPACA_API_KEY, ALPACA_SECRET_KEY, ALPACA_BASE_URL
 from utils.logger import get_logger, log_trade_decision
+from utils.rate_limiter import retry_on_rate_limit
 
 logger = get_logger("broker_service")
 
@@ -30,6 +31,7 @@ class BrokerService:
             f"Broker initialized (mode: {'PAPER' if is_paper else 'WARNING: LIVE'})"
         )
 
+    @retry_on_rate_limit(max_retries=3, initial_backoff=2.0)
     def get_account(self) -> dict:
         """
         Get current account information.
@@ -58,6 +60,7 @@ class BrokerService:
             logger.error(f"Account fetch failed: {e}")
             return {}
 
+    @retry_on_rate_limit(max_retries=3, initial_backoff=2.0)
     def get_positions(self) -> list[dict]:
         """
         Get all current portfolio positions.
@@ -95,6 +98,7 @@ class BrokerService:
             logger.error(f"Positions fetch failed: {e}")
             return []
 
+    @retry_on_rate_limit(max_retries=3, initial_backoff=2.0)
     def execute_trade(
         self,
         ticker: str,
@@ -172,6 +176,7 @@ class BrokerService:
                 "error": str(e),
             }
 
+    @retry_on_rate_limit(max_retries=3, initial_backoff=2.0)
     def close_position(self, ticker: str) -> dict:
         """Close an entire position for a ticker."""
         try:
@@ -182,6 +187,7 @@ class BrokerService:
             logger.error(f"Close position failed for {ticker}: {e}")
             return {"status": "failed", "ticker": ticker, "error": str(e)}
 
+    @retry_on_rate_limit(max_retries=3, initial_backoff=2.0)
     def close_all_positions(self) -> dict:
         """Emergency: close ALL positions (kill switch)."""
         try:
@@ -192,6 +198,7 @@ class BrokerService:
             logger.error(f"Close all positions failed: {e}")
             return {"status": "failed", "error": str(e)}
 
+    @retry_on_rate_limit(max_retries=3, initial_backoff=2.0)
     def get_open_orders(self) -> list[dict]:
         """Get all open (pending) orders."""
         try:
@@ -211,6 +218,7 @@ class BrokerService:
             logger.error(f"Open orders fetch failed: {e}")
             return []
 
+    @retry_on_rate_limit(max_retries=3, initial_backoff=2.0)
     def cancel_all_orders(self) -> dict:
         """Cancel all open/pending orders before EOD close."""
         try:
@@ -221,6 +229,7 @@ class BrokerService:
             logger.warning(f"Cancel all orders failed (may have no open orders): {e}")
             return {"status": "ok", "note": str(e)}
 
+    @retry_on_rate_limit(max_retries=3, initial_backoff=2.0)
     def close_day_trade_positions(self, day_trade_tickers: set) -> list[dict]:
         """
         EOD smart close: liquidate only day-trade positions, not mega-cap holds.
@@ -263,6 +272,7 @@ class BrokerService:
 
         return results
 
+    @retry_on_rate_limit(max_retries=3, initial_backoff=2.0)
     def get_todays_filled_orders(self) -> list[dict]:
         """Fetch all filled (closed) orders from the current trading session timeframe."""
         try:
