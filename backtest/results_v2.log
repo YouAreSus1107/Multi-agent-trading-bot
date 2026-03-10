@@ -1,6 +1,6 @@
 ======================================================================
 V2 BACKTEST ENGINE - 3-Layer Architecture
-Period: 2024-01-01 to 2024-02-29
+Period: 2023-01-01 to 2023-03-31
 ======================================================================
 
 [Layer 1] Loading S&P 500 daily data...
@@ -8,72 +8,129 @@ Period: 2024-01-01 to 2024-02-29
 
 [Layer 1+2] Running daily Universe Ranking + Regime Detection...
 
-[Layer 3] Running Intraday 5m Execution on 41 trading days...
-  [2024-01-02] LONG COIN @ 174.90 | Score=82 Exec=59 DR=0.61 Z=-0.13 | Size: $20,000 | Lev: 2.0x | Regime: BULL
-  [2024-01-02] STOP COIN (LONG) @ 170.40 | PnL: -5.15%
-  [2024-01-03] LONG EXR @ 159.23 | Score=73 Exec=56 DR=0.64 Z=-2.48 | Size: $17,942 | Lev: 2.0x | Regime: BULL
-  [2024-01-03] TARGET EXR (LONG) @ 160.67 | PnL: +1.81%
-  [2024-01-05] LONG PSQ @ 9.75 | Score=56 Exec=36 DR=0.47 Z=-0.55 | Size: $18,591 | Lev: 2.0x | Regime: BEAR
-  [2024-01-05] TARGET PSQ (LONG) @ 9.80 | PnL: +1.03%
-  [2024-01-10] SHORT DXCM @ 128.98 | Score=92 Exec=60 DR=0.38 Z=-1.44 | Size: $18,972 | Lev: 2.0x | Regime: BEAR
-  [2024-01-10] SHORT VTRS REJECTED | Reason: Sector Cap (Health Care)
-  [2024-01-10] EOD CLOSE DXCM (SHORT) @ 128.81 | PnL: +0.26%
-  [2024-01-11] SHORT DASH @ 103.74 | Score=86 Exec=60 DR=0.31 Z=-1.87 | Size: $18,973 | Lev: 2.0x | Regime: BEAR
-  [2024-01-11] SHORT FITB @ 34.62 | Score=84 Exec=60 DR=0.33 Z=-0.61 | Size: $18,973 | Lev: 2.0x | Regime: BEAR
-  [2024-01-11] EOD CLOSE DASH (SHORT) @ 104.16 | PnL: -0.81%
-  [2024-01-11] EOD CLOSE FITB (SHORT) @ 34.77 | PnL: -0.90%
-  [2024-01-12] LONG MRNA @ 109.35 | Score=78 Exec=55 DR=0.66 Z=-0.01 | Size: $10,508 | Lev: 1.1x | Regime: BULL
-  [2024-01-12] EOD CLOSE MRNA (LONG) @ 106.57 | PnL: -2.82%
-  [2024-01-23] LONG CRWD @ 293.79 | Score=67 Exec=50 DR=0.61 Z=-0.97 | Size: $15,932 | Lev: 1.7x | Regime: BULL
-  [2024-01-23] EOD CLOSE CRWD (LONG) @ 296.44 | PnL: +1.52%
-  [2024-01-31] LONG SMCI @ 526.49 | Score=79 Exec=60 DR=0.66 Z=-1.12 | Size: $11,739 | Lev: 1.2x | Regime: BULL
-  [2024-01-31] TARGET SMCI (LONG) @ 541.97 | PnL: +3.64%
-  [2024-02-05] LONG FTV @ 81.97 | Score=70 Exec=55 DR=0.73 Z=-0.07 | Size: $19,821 | Lev: 2.0x | Regime: BULL
-  [2024-02-05] LONG SMCI @ 622.32 | Score=69 Exec=52 DR=0.70 Z=1.25 | Size: $8,446 | Lev: 0.9x | Regime: BULL
-  [2024-02-05] TARGET SMCI (LONG) @ 648.74 | PnL: +3.62%
-  [2024-02-05] EOD CLOSE FTV (LONG) @ 82.45 | PnL: +1.16%
-  [2024-02-07] LONG KKR @ 95.10 | Score=77 Exec=60 DR=0.72 Z=1.36 | Size: $20,435 | Lev: 2.0x | Regime: BULL
-  [2024-02-07] LONG LLY @ 727.01 | Score=72 Exec=55 DR=0.67 Z=0.14 | Size: $17,643 | Lev: 1.7x | Regime: BULL
-  [2024-02-07] EOD CLOSE KKR (LONG) @ 95.21 | PnL: +0.23%
-  [2024-02-07] EOD CLOSE LLY (LONG) @ 731.25 | PnL: +1.01%
-  [2024-02-08] LONG CVNA @ 50.38 | Score=70 Exec=45 DR=0.68 Z=1.54 | Size: $14,709 | Lev: 1.4x | Regime: BULL
-  [2024-02-08] LONG LLY @ 738.06 | Score=67 Exec=52 DR=0.69 Z=1.28 | Size: $20,437 | Lev: 2.0x | Regime: BULL
-  [2024-02-08] TARGET CVNA (LONG) @ 51.70 | PnL: +3.77%
-  [2024-02-08] EOD CLOSE LLY (LONG) @ 733.02 | PnL: -1.37%
-  [2024-02-12] LONG PLTR @ 24.40 | Score=67 Exec=52 DR=0.65 Z=1.03 | Size: $21,231 | Lev: 2.0x | Regime: BULL
-  [2024-02-12] TARGET PLTR (LONG) @ 25.00 | PnL: +4.85%
-  [2024-02-14] LONG TPR @ 43.30 | Score=65 Exec=44 DR=0.61 Z=0.15 | Size: $23,602 | Lev: 2.0x | Regime: BULL
-  [2024-02-14] TARGET TPR (LONG) @ 43.91 | PnL: +2.86%
-  [2024-02-15] LONG CVNA @ 55.69 | Score=81 Exec=60 DR=0.68 Z=-0.51 | Size: $12,026 | Lev: 1.0x | Regime: BULL
-  [2024-02-15] LONG COIN @ 168.00 | Score=75 Exec=56 DR=0.64 Z=-1.75 | Size: $7,684 | Lev: 0.6x | Regime: BULL
-  [2024-02-15] STOP CVNA (LONG) @ 53.64 | PnL: -3.55%
-  [2024-02-15] EOD CLOSE COIN (LONG) @ 165.03 | PnL: -1.09%
-  [2024-02-20] SHORT UBER @ 76.66 | Score=82 Exec=59 DR=0.40 Z=0.34 | Size: $18,540 | Lev: 1.5x | Regime: BEAR
-  [2024-02-20] EOD CLOSE UBER (SHORT) @ 76.31 | PnL: +0.71%
-  [2024-02-22] SHORT VTRS @ 13.35 | Score=85 Exec=60 DR=0.36 Z=-0.56 | Size: $24,099 | Lev: 2.0x | Regime: BEAR
-  [2024-02-22] STOP VTRS (SHORT) @ 13.47 | PnL: -1.87%
-  [2024-02-26] SHORT SMCI @ 843.63 | Score=77 Exec=60 DR=0.36 Z=-1.59 | Size: $8,824 | Lev: 0.8x | Regime: BEAR
-  [2024-02-26] STOP SMCI (SHORT) @ 877.33 | PnL: -3.04%
-  [2024-02-29] LONG EME @ 308.65 | Score=73 Exec=56 DR=0.62 Z=-1.79 | Size: $22,256 | Lev: 2.0x | Regime: BULL
-  [2024-02-29] EOD CLOSE EME (LONG) @ 312.19 | PnL: +2.25%
+[Layer 3] Running Intraday 5m Execution on 62 trading days...
+  [2023-01-06] LONG RL @ 115.18 | Score=81 Exec=60 DR=0.68 Z=0.34 | Size: $20,000 | Lev: 2.0x | Regime: BULL
+  [2023-01-06] STOP RL (LONG) @ 114.65 | PnL: -0.92%
+  [2023-01-10] LONG FCX @ 43.40 | Score=75 Exec=56 DR=0.57 Z=-1.73 | Size: $19,632 | Lev: 2.0x | Regime: BULL
+  [2023-01-10] LONG GE @ 73.44 | Score=74 Exec=59 DR=0.55 Z=0.20 | Size: $19,632 | Lev: 2.0x | Regime: BULL
+  [2023-01-10] TARGET FCX (LONG) @ 43.98 | PnL: +2.70%
+  [2023-01-10] TARGET GE (LONG) @ 74.25 | PnL: +2.22%
+  [2023-01-12] LONG UAL @ 49.39 | Score=73 Exec=56 DR=0.58 Z=-1.80 | Size: $15,461 | Lev: 1.4x | Regime: BULL
+  [2023-01-12] LONG GE REJECTED | Reason: Sector Cap (Industrials)
+  [2023-01-12] TARGET UAL (LONG) @ 50.50 | PnL: +3.22%
+  [2023-01-30] LONG ALGN @ 266.45 | Score=73 Exec=56 DR=0.56 Z=1.28 | Size: $22,103 | Lev: 2.0x | Regime: BULL
+  [2023-01-30] EOD CLOSE ALGN (LONG) @ 266.37 | PnL: -0.06%
+  [2023-02-02] LONG PNR @ 59.68 | Score=70 Exec=55 DR=0.74 Z=-0.20 | Size: $17,291 | Lev: 1.5x | Regime: BULL
+  [2023-02-02] STOP PNR (LONG) @ 59.68 | PnL: +0.00%
+  [2023-02-03] LONG PNR @ 59.65 | Score=72 Exec=55 DR=0.67 Z=0.38 | Size: $22,558 | Lev: 2.0x | Regime: BULL
+  [2023-02-03] STOP PNR (LONG) @ 58.93 | PnL: -2.41%
+  [2023-02-07] LONG WBD @ 15.13 | Score=73 Exec=56 DR=0.62 Z=0.86 | Size: $21,469 | Lev: 2.0x | Regime: BULL
+  [2023-02-07] TARGET WBD (LONG) @ 15.36 | PnL: +2.97%
+  [2023-02-08] LONG META @ 185.38 | Score=71 Exec=56 DR=0.56 Z=-2.01 | Size: $22,307 | Lev: 2.0x | Regime: BULL
+  [2023-02-08] EOD CLOSE META (LONG) @ 185.08 | PnL: -0.31%
+  [2023-02-13] SHORT SWKS @ 120.27 | Score=79 Exec=60 DR=0.22 Z=0.28 | Size: $22,745 | Lev: 2.0x | Regime: BEAR
+  [2023-02-13] STOP SWKS (SHORT) @ 121.07 | PnL: -1.33%
+  [2023-02-16] LONG PSQ @ 12.79 | Score=50 Exec=30 DR=0.44 Z=-2.34 | Size: $22,140 | Lev: 2.0x | Regime: BEAR
+  [2023-02-16] SHORT CVNA @ 12.20 | Score=73 Exec=49 DR=0.36 Z=1.97 | Size: $5,188 | Lev: 0.5x | Regime: BEAR
+  [2023-02-16] TARGET CVNA (SHORT) @ 11.35 | PnL: +3.27%
+  [2023-02-16] EOD CLOSE PSQ (LONG) @ 12.78 | PnL: -0.16%
+  [2023-02-17] SHORT SMCI @ 93.05 | Score=79 Exec=60 DR=0.26 Z=-2.98 | Size: $22,478 | Lev: 2.0x | Regime: BEAR
+  [2023-02-17] TARGET SMCI (SHORT) @ 91.91 | PnL: +2.45%
+  [2023-02-21] SHORT CVNA @ 10.77 | Score=82 Exec=60 DR=0.28 Z=-1.49 | Size: $5,528 | Lev: 0.5x | Regime: BEAR
+  [2023-02-21] SHORT PLTR @ 8.53 | Score=77 Exec=60 DR=0.38 Z=-1.61 | Size: $9,338 | Lev: 0.8x | Regime: BEAR
+  [2023-02-21] EOD CLOSE CVNA (SHORT) @ 10.21 | PnL: +2.40%
+  [2023-02-21] EOD CLOSE PLTR (SHORT) @ 8.53 | PnL: +0.05%
+  [2023-02-22] SHORT CVNA @ 9.78 | Score=82 Exec=60 DR=0.30 Z=-1.19 | Size: $5,392 | Lev: 0.5x | Regime: BEAR
+  [2023-02-22] EOD CLOSE CVNA (SHORT) @ 9.86 | PnL: -0.40%
+  [2023-02-28] SHORT WBD @ 15.88 | Score=86 Exec=60 DR=0.37 Z=-1.42 | Size: $17,705 | Lev: 1.5x | Regime: BEAR
+  [2023-02-28] TARGET WBD (SHORT) @ 15.52 | PnL: +3.50%
+  [2023-03-01] SHORT NVDA @ 228.44 | Score=84 Exec=60 DR=0.29 Z=-0.81 | Size: $24,085 | Lev: 1.9x | Regime: BEAR
+  [2023-03-01] EOD CLOSE NVDA (SHORT) @ 227.32 | PnL: +0.95%
+  [2023-03-06] LONG MOS @ 56.21 | Score=75 Exec=60 DR=0.66 Z=-1.06 | Size: $24,826 | Lev: 2.0x | Regime: BULL
+  [2023-03-06] EOD CLOSE MOS (LONG) @ 56.33 | PnL: +0.43%
+  [2023-03-13] LONG ANET @ 147.11 | Score=81 Exec=60 DR=0.69 Z=2.19 | Size: $17,480 | Lev: 1.4x | Regime: BULL
+  [2023-03-13] LONG GE @ 88.86 | Score=76 Exec=59 DR=0.59 Z=-0.25 | Size: $19,584 | Lev: 1.6x | Regime: BULL
+  [2023-03-13] EOD CLOSE ANET (LONG) @ 146.89 | PnL: -0.21%
+  [2023-03-13] EOD CLOSE GE (LONG) @ 88.98 | PnL: +0.22%
+  [2023-03-14] LONG SPXU @ 15.64 | Score=50 Exec=30 DR=0.37 Z=-1.77 | Size: $21,913 | Lev: 1.8x | Regime: BEAR
+  [2023-03-14] SHORT ANET @ 152.09 | Score=75 Exec=56 DR=0.38 Z=1.13 | Size: $24,827 | Lev: 2.0x | Regime: BEAR
+  [2023-03-14] SHORT FSLR REJECTED | Reason: Sector Cap (Information Technology)
+  [2023-03-14] SHORT FSLR REJECTED | Reason: Sector Cap (Information Technology)
+  [2023-03-14] TARGET SPXU (LONG) @ 15.96 | PnL: +3.61%
+  [2023-03-14] EOD CLOSE ANET (SHORT) @ 153.16 | PnL: -1.40%
+  [2023-03-15] SHORT BG @ 97.59 | Score=80 Exec=60 DR=0.28 Z=-2.13 | Size: $10,662 | Lev: 0.8x | Regime: BEAR
+  [2023-03-15] LONG SPXU @ 16.24 | Score=50 Exec=30 DR=0.42 Z=-1.76 | Size: $21,335 | Lev: 1.6x | Regime: BEAR
+  [2023-03-15] SHORT GE @ 87.72 | Score=79 Exec=60 DR=0.36 Z=-1.06 | Size: $20,815 | Lev: 1.6x | Regime: BEAR
+  [2023-03-15] LONG QID REJECTED | Reason: Margined Out (MorningCap=False)
+  [2023-03-15] TARGET GE (SHORT) @ 86.58 | PnL: +2.07%
+  [2023-03-15] TARGET SPXU (LONG) @ 16.56 | PnL: +3.18%
+  [2023-03-15] EOD CLOSE BG (SHORT) @ 96.83 | PnL: +0.63%
+  [2023-03-16] SHORT ALGN @ 317.96 | Score=82 Exec=60 DR=0.19 Z=1.14 | Size: $28,627 | Lev: 2.0x | Regime: BEAR
+  [2023-03-16] LONG SDS @ 44.17 | Score=50 Exec=30 DR=0.41 Z=-1.92 | Size: $28,627 | Lev: 2.0x | Regime: BEAR
+  [2023-03-16] LONG PSQ REJECTED | Reason: Margined Out (MorningCap=False)
+  [2023-03-16] LONG SPXU REJECTED | Reason: Margined Out (MorningCap=False)
+  [2023-03-16] LONG SPXU REJECTED | Reason: Margined Out (MorningCap=False)
+  [2023-03-16] LONG SPXU REJECTED | Reason: Margined Out (MorningCap=False)
+  [2023-03-16] STOP ALGN (SHORT) @ 321.11 | PnL: -1.98%
+  [2023-03-16] LONG PSQ @ 12.92 | Score=58 Exec=38 DR=0.41 Z=-2.99 | Size: $26,358 | Lev: 1.9x | Regime: BEAR
+  [2023-03-16] LONG SPXU REJECTED | Reason: Margined Out (MorningCap=False)
+  [2023-03-16] LONG SPXU REJECTED | Reason: Margined Out (MorningCap=False)
+  [2023-03-16] STOP SDS (LONG) @ 43.72 | PnL: -2.04%
+  [2023-03-16] STOP PSQ (LONG) @ 12.86 | PnL: -0.89%
+  [2023-03-17] SHORT META @ 198.70 | Score=85 Exec=60 DR=0.38 Z=-1.51 | Size: $22,791 | Lev: 1.8x | Regime: BEAR
+  [2023-03-17] SHORT CRWD @ 132.40 | Score=81 Exec=60 DR=0.32 Z=-2.14 | Size: $25,856 | Lev: 2.0x | Regime: BEAR
+  [2023-03-17] STOP CRWD (SHORT) @ 133.87 | PnL: -2.22%
+  [2023-03-17] EOD CLOSE META (SHORT) @ 195.78 | PnL: +2.59%
+  [2023-03-20] SHORT MSFT @ 271.12 | Score=83 Exec=60 DR=0.36 Z=-1.89 | Size: $24,544 | Lev: 2.0x | Regime: BEAR
+  [2023-03-20] LONG QID @ 19.55 | Score=62 Exec=42 DR=0.46 Z=-2.20 | Size: $24,714 | Lev: 2.0x | Regime: BEAR
+  [2023-03-20] LONG SPXU @ 15.35 | Score=62 Exec=42 DR=0.48 Z=-2.13 | Size: $170 | Lev: 0.0x | Regime: BEAR
+  [2023-03-20] SHORT FDX REJECTED | Reason: Margined Out (MorningCap=False)
+  [2023-03-20] SHORT FDX REJECTED | Reason: Margined Out (MorningCap=False)
+  [2023-03-20] SHORT FDX REJECTED | Reason: Margined Out (MorningCap=False)
+  [2023-03-20] EOD CLOSE MSFT (SHORT) @ 272.12 | PnL: -0.73%
+  [2023-03-20] EOD CLOSE QID (LONG) @ 19.40 | PnL: -1.53%
+  [2023-03-20] EOD CLOSE SPXU (LONG) @ 15.30 | PnL: -0.00%
+  [2023-03-21] LONG META @ 198.56 | Score=81 Exec=60 DR=0.57 Z=-4.00 | Size: $24,709 | Lev: 2.0x | Regime: BULL
+  [2023-03-21] TARGET META (LONG) @ 200.97 | PnL: +2.42%
+  [2023-03-24] LONG TTD @ 59.33 | Score=82 Exec=56 DR=0.57 Z=-1.62 | Size: $25,906 | Lev: 2.0x | Regime: BULL
+  [2023-03-24] LONG APP @ 13.96 | Score=83 Exec=60 DR=0.58 Z=-2.70 | Size: $19,074 | Lev: 1.5x | Regime: BULL
+  [2023-03-24] LONG META REJECTED | Reason: Sector Cap (Communication Services)
+  [2023-03-24] LONG CVNA @ 8.10 | Score=71 Exec=56 DR=0.58 Z=-1.65 | Size: $6,832 | Lev: 0.5x | Regime: BULL
+  [2023-03-24] LONG SMCI REJECTED | Reason: Sector Cap (Information Technology)
+  [2023-03-24] TARGET TTD (LONG) @ 60.23 | PnL: +3.03%
+  [2023-03-24] EOD CLOSE APP (LONG) @ 14.18 | PnL: +2.32%
+  [2023-03-24] EOD CLOSE CVNA (LONG) @ 8.21 | PnL: +0.68%
+  [2023-03-28] LONG FSLR @ 209.72 | Score=72 Exec=56 DR=0.58 Z=-1.71 | Size: $27,486 | Lev: 2.0x | Regime: BULL
+  [2023-03-28] LONG SMCI REJECTED | Reason: Sector Cap (Information Technology)
+  [2023-03-28] LONG SMCI REJECTED | Reason: Sector Cap (Information Technology)
+  [2023-03-28] LONG SMCI REJECTED | Reason: Sector Cap (Information Technology)
+  [2023-03-28] TARGET FSLR (LONG) @ 211.42 | PnL: +1.62%
+  [2023-03-28] LONG SMCI @ 104.89 | Score=81 Exec=60 DR=0.67 Z=-2.13 | Size: $17,659 | Lev: 1.2x | Regime: BULL
+  [2023-03-28] STOP SMCI (LONG) @ 102.47 | PnL: -2.87%
+  [2023-03-29] LONG MKC @ 81.19 | Score=75 Exec=56 DR=0.56 Z=-2.31 | Size: $27,360 | Lev: 2.0x | Regime: BULL
+  [2023-03-29] TARGET MKC (LONG) @ 81.67 | PnL: +1.19%
+  [2023-03-29] LONG WST @ 342.56 | Score=70 Exec=56 DR=0.57 Z=-2.33 | Size: $28,014 | Lev: 2.0x | Regime: BULL
+  [2023-03-29] STOP WST (LONG) @ 341.89 | PnL: -0.39%
+  [2023-03-30] LONG APP @ 15.04 | Score=75 Exec=56 DR=0.60 Z=-1.73 | Size: $18,662 | Lev: 1.3x | Regime: BULL
+  [2023-03-30] EOD CLOSE APP (LONG) @ 15.00 | PnL: -0.36%
 
 ======================================================================
 BACKTEST RESULTS
 ======================================================================
 
-Total Trades: 23
-Wins: 14 | Losses: 9 | Win Rate: 60.87%
-Avg Return Per Trade: 0.3536%
-Profit Factor: 1.40
-Gross Profit: 28.72 | Gross Loss: 20.58
+Total Trades: 43
+Wins: 23 | Losses: 20 | Win Rate: 53.49%
+Avg Return Per Trade: 0.6395%
+Profit Factor: 2.36
+Gross Profit: 47.72 | Gross Loss: 20.22
 
 Breakdown:
-  Bull Regime: 16 trades | Win Rate: 68.8%
-  Bear Regime: 7 trades | Win Rate: 42.9%
+  Bull Regime: 21 trades | Win Rate: 57.1%
+  Bear Regime: 22 trades | Win Rate: 50.0%
 
 Account Simulation (Simple Compounding):
-Final Equity: $11,332.88 | Total Return: +13.33%
-Max Drawdown: -9.19%
+Final Equity: $13,896.99 | Total Return: +38.97%
+Max Drawdown: -13.69%
 
 [V1 CSV MATCH FORMAT]
-2026-03-11 00:22:26,MTF Strict Execution (Momentum Breakout),1.40,60.87,23,0.3536,0.7968,-0.6592,0.0000,0.0000,28.72,20.58
+2026-03-11 00:37:28,MTF Strict Execution (Momentum Breakout),2.36,53.49,43,0.6395,0.7379,0.5455,0.0000,0.0000,47.72,20.22

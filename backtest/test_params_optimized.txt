@@ -1,2 +1,2 @@
 long_hybrid,long_exec,long_vwap,short_hybrid,short_exec,short_vwap,long_delta_min,short_delta_max,long_bounce_pct,short_bounce_pct,stop_r,target_r
-Input: 65.0,40,2.5,65.0,40,-2.5,0.60,0.40,0.0,0.0,3.0,3.5
+Input: 56.0,33.0,2.5,60.0,39.0,-2.5,0.55,0.43,0.0,0.0,2.0,3.5
