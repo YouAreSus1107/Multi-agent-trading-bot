@@ -24,11 +24,11 @@ Your job:
 1. Read the news and identify which SPECIFIC STOCKS will be affected TODAY.
 2. Discover NICHE/SPECIFIC tickers — not just big ETFs. Examples:
    - "Earnings beat, raised guidance" → find that specific ticker
-   - "FDA grants approval" → find that specific biotech (RLAY, MRNA, ARWR, etc.)
-   - "Pentagon awards $500M cyber contract" → PLTR, PANW, CRWD
-   - "AI chip demand surges" → NVDA, AMD, SMCI, AVGO
-   - "Bitcoin hits new high" → MSTR, MARA, COIN, RIOT
-   - "Iran threatens Strait of Hormuz" → OXY, XOM, LMT, RTX
+   - "FDA grants approval" → find that specific biotech
+   - "Pentagon awards cyber contract" → find the winning contractor
+   - "AI chip demand surges" → find the specific semi stocks
+   - "Commodity hits new high" → find the related miners/producers
+   - "Geopolitical threat" → find the specific defense/energy stocks
    - "Short squeeze candidate high volume" → find the actual ticker
 3. Assess the MAGNITUDE of each event's impact (1-10 scale).
 4. Think about SECOND-ORDER effects (e.g., oil disruption → airline costs up → UAL down).
@@ -36,10 +36,9 @@ Your job:
 
 SECTOR DIVERSITY RULE (CRITICAL):
 - You MUST cover AT LEAST 2 DIFFERENT sectors per analysis.
-- If recent cycles were dominated by energy/defense (Iran war), you MUST find tickers in OTHER sectors:
-  tech, biotech, crypto, consumer, industrial, small-cap momentum, etc.
-- DO NOT output only OXY/XOM/LMT/RTX if there are other newsworthy events in the feed.
-- Missing a biotech catalyst or earnings beat because you fixated on geopolitics is a BAD analysis.
+- If recent cycles were dominated by one theme, you MUST find tickers in OTHER sectors.
+- DO NOT output only the same tickers if there are other newsworthy events in the feed.
+- Missing a major catalyst because you fixated on a past narrative is a BAD analysis.
 
 ALGORITHMIC MOMENTUM RULE:
 - You will be provided with the current Top Gainers and Losers from the market screener. 
@@ -54,7 +53,7 @@ YOU MUST RESPOND WITH VALID JSON ONLY.
         {
             "headline": "short description",
             "impact": 8,
-            "affected_tickers": ["PLTR", "CRWD"],
+            "affected_tickers": ["TICKA", "TICKB"],
             "direction": "bullish",
             "reasoning": "Why these tickers will move",
             "deep_context": [
@@ -67,10 +66,10 @@ YOU MUST RESPOND WITH VALID JSON ONLY.
             ]
         }
     ],
-    "niche_tickers_discovered": ["PLTR", "RKLB", "IONQ"],
+    "niche_tickers_discovered": ["TICKA", "TICKC", "TICKD"],
     "sector_impact": {
-        "defense": {"sentiment": 0.85, "direction": "bullish"},
-        "tech": {"sentiment": 0.40, "direction": "bearish"}
+        "sector_alpha": {"sentiment": 0.85, "direction": "bullish"},
+        "sector_beta": {"sentiment": 0.40, "direction": "bearish"}
     },
     "market_mood": "risk-off",
     "thinking_log": "My reasoning process summary covering MULTIPLE sectors..."
@@ -153,8 +152,8 @@ NEWS FEED:
 MARKET MOVERS (Screener):
 {movers_text}
 
-Remember: We day-trade volatile individual stocks (PLTR, MSTR, SMCI, IONQ, NVDA, AMD, LMT, etc.)
-NOT ETFs like XLE or GLD. Find the specific companies affected."""
+Remember: We day-trade volatile individual stocks.
+NOT broad ETFs. Find the specific companies affected."""
 
         try:
             response = self.llm.invoke([

@@ -35,7 +35,7 @@ Response format:
 {
     "fundamentals": [
         {
-            "ticker": "PLTR",
+            "ticker": "TICKA",
             "current_position": false,
             "buy_zone": [95.50, 96.20],
             "sell_target": 0,
@@ -89,9 +89,9 @@ class FundamentalsAnalyst:
 
         # Build concise data for LLM (include held tickers for profiling)
         ticker_data = {}
-        # Always include held tickers first so they are never dropped by the :15 cap
+        # Always include held tickers first so they are never dropped by the cap
         priority_tickers = list(held_tickers) + [t for t in tickers if t not in held_tickers]
-        for ticker in priority_tickers[:20]:
+        for ticker in priority_tickers[:25]:
             tech = technical_data.get(ticker, {})
             if not tech:
                 # Still include held tickers even without technical data
@@ -158,18 +158,21 @@ PORTFOLIO STATUS:
 
 BUYING POWER ALLOCATION (MUST FOLLOW):
 - MEGA-CAP BUCKET: ${mega_cap_bp:,.0f} (60%) → For blue-chip holds: {', '.join(mega_cap_candidates) if mega_cap_candidates else 'none in list'}
-  Use this bucket for NVDA, TSLA, META, AMD, GOOGL etc. These are hold-and-manage plays.
+  Use this bucket for high market cap, established names. These are hold-and-manage plays.
 - DAY-TRADE BUCKET: ${day_trade_bp:,.0f} (40%) → For small/mid-cap catalysts: {', '.join(day_trade_candidates[:8]) if day_trade_candidates else 'none'}
   Use this bucket for high-beta small/mid-caps with earnings, FDA, contract, or momentum catalysts.
   These should be INTRADAY plays — tighter stops, faster exits.
 
 Mandatory: recommend at least 1 day-trade candidate from the day-trade bucket if any show momentum.
-Recommend ONLY your top {min(slots_available, 3)} BEST opportunities total (mix of tiers).
+
+CRITICAL: You MUST evaluate and output a profile for EVERY SINGLE TICKER provided in the TECHNICAL DATA below. 
+Do not skip any ticker. For each ticker, you MUST populate the `reasoning` and `strategy` fields to explain the setup (e.g., "Quant scanner detected strong residual momentum, VWAP is oversold"). 
+Even if the timing is "avoid" or "wait_for_dip", you must output the profile.
 
 TECHNICAL DATA:
 {json.dumps(ticker_data, indent=2)}
 
-Determine buy zones, sell targets, and timing for each viable ticker.
+Determine buy zones, sell targets, timing, reasoning, and strategy for every ticker.
 For day-trade candidates, set tighter stops (1-1.5%) and faster targets (2-4%).
 For mega-caps, use standard stops (1.5-2%) and targets (2-5%)."""
 

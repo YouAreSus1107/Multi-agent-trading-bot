@@ -17,7 +17,11 @@ from utils.indicators import (
     detect_parabolic_reversal, detect_stop_hunt_zones,
     detect_mm_refill, detect_first_hour_trend,
 )
-from utils.quant_engine import build_quant_metrics
+from utils.quant_engine import (
+    build_quant_metrics,
+    precompute_quant_metrics_for_ticker,
+    precompute_mtf_tsl_for_ticker,
+)
 from utils.logger import get_logger
 from services.market_service import MarketService
 from datetime import datetime, timezone
@@ -117,17 +121,34 @@ class TechnicalAnalyst:
                     atr_daily = 0.0
 
                 # ── LAYER 2: Intraday quant metrics (execution trigger) ────────
-                # Fetch 15-minute bars for the quant features every cycle
-                df_15m = market_service.get_intraday_bars(ticker, timeframe_minutes=15, days_back=5)
-                quant = build_quant_metrics(df_15m)
+                # Use the exact same precompute pipeline as the backtest:
+                #   precompute_quant_metrics_for_ticker → precompute_mtf_tsl_for_ticker → build_quant_metrics
+                # This ensures both MTF and VWAP/delta metrics are fully populated.
+                try:
+                    bars = market_service.get_intraday_bars(ticker, timeframe_minutes=5, days_back=2)
+                    if not bars.empty and len(bars) >= 16:
+                        df_5m = bars
+                        # Step 1: Vectorised ATR / VWAP zscore / delta_ratio / smart_bounce
+                        df_precomp = precompute_quant_metrics_for_ticker(df_5m)
+                        # Step 2: MTF Trailing SL (4 timeframes: 5m / 120m / 180m / 240m)
+                        df_precomp = precompute_mtf_tsl_for_ticker(df_precomp)
+                        # Step 3: Build the final quant dict from the precomputed DataFrame
+                        quant = build_quant_metrics(df_precomp)
+                    else:
+                        df_5m = None
+                        quant = build_quant_metrics(None)
+                except Exception as e:
+                    logger.warning(f"Could not compute quant metrics for {ticker}: {e}")
+                    df_5m = None
+                    quant = build_quant_metrics(None)
 
-                if df_15m is not None and not df_15m.empty:
-                    current_price = float(df_15m["close"].iloc[-1])
+                if df_5m is not None and not df_5m.empty:
+                    current_price = float(df_5m["close"].iloc[-1])
                     classic["current_price"] = current_price
 
-                # Fallback ATR if 15m doesn't have enough data
+                # Fallback ATR: use 0.004 * price for 5m (matches backtest + mock_technical_analyst)
                 if quant["atr_5m"] == 0.0 and current_price > 0:
-                    quant["atr_5m"] = round(atr_daily, 4) if atr_daily > 0 else round(current_price * 0.015, 4)
+                    quant["atr_5m"] = round(atr_daily, 4) if atr_daily > 0 else round(current_price * 0.004, 4)
                     quant["initial_stop"] = round(current_price - 1.5 * quant["atr_5m"], 2)
                     quant["target_2r"] = round(current_price + 3.0 * quant["atr_5m"], 2)
 
@@ -236,12 +257,23 @@ class TechnicalAnalyst:
                 # ── Quant signals (new) ───────────────────────────────────────
                 signals.extend(quant.get("quant_signals", []))
 
+                # ── QUANT ENTRY SIGNAL GATE (backtest evaluate_bull_entry logic) ──────
+                # This matches evaluate_bull_entry() in run_backtest_v2.py exactly:
+                #   hybrid_score >= 56  (trend 0-40 + exec 0-60)
+                #   delta_ratio > 0.55  (net buying pressure)
+                #   vwap_zscore <= 2.5  (not statistically overbought)
+                vwap_z_ok = quant.get("vwap_zscore", 0) <= 2.5
+                delta_ok = quant.get("delta_ratio", 0.5) > 0.55
+                score_ok = hybrid_score >= 56
+                quant_entry_signal = score_ok and delta_ok and vwap_z_ok
+
                 # ── Assemble final profile ────────────────────────────────────
                 profile = {
                     **classic,
                     "score": hybrid_score,
                     "trend_score": trend_score,
                     "exec_score": exec_score,
+                    "quant_entry_signal": quant_entry_signal,   # True = all 3 gates pass
                     "signals": signals,
                     "pro_signals": pro,
                     # Quant fields
@@ -257,13 +289,15 @@ class TechnicalAnalyst:
                     "sell_pressure": quant["sell_pressure"],
                     "smart_bounce": quant["smart_bounce"],
                     "last_bar_buy_pct": quant["last_bar_buy_pct"],
+                    "mtf_total_pos": quant.get("mtf_total_pos", 0),
+                    "tsl_1": quant.get("tsl_1", 0.0),
                 }
                 profiles[ticker] = profile
 
                 logger.info(
                     f"{ticker}: hybrid={hybrid_score} "
                     f"(trend={trend_score:.0f}/40 + exec={exec_score}/60) | "
-                    f"Z={quant['vwap_zscore']:+.2f} | δ={quant['delta_ratio']:.2f} | "
+                    f"MTF={quant.get('mtf_total_pos', 0)} | δ={quant['delta_ratio']:.2f} | "
                     f"ATR=${quant['atr_5m']:.3f}"
                 )
 

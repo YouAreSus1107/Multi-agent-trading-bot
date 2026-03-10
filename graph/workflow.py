@@ -23,6 +23,7 @@ from services.broker_service import BrokerService
 from utils.logger import get_logger
 from utils.memory import get_memory
 from config import ALL_DAY_TRADE_TICKERS, RISK_CONFIG
+from services.universe_service import universe_service
 from datetime import datetime, timezone
 import time
 import json
@@ -84,18 +85,32 @@ def ingest_data(state: WarRoomState) -> dict:
     # Sync execution_memory against real broker positions every cycle
     get_memory().sync_positions(positions, cycle)
 
-    # Build candidate tickers: tracked tickers + any from news discovery
-    candidates = get_tracked_tickers()
-    niche = _slow_cache.get("news_data", {}).get("niche_tickers_discovered", [])
-    for t in niche:
-        if t not in candidates:
-            candidates.append(t)
+    # ── Layer 1: Daily ranked S&P 500 universe (T-1 data, no look-ahead) ──
+    # This is the PRIMARY source for candidates, matching the backtest exactly.
+    ranked_tickers = universe_service.get_todays_universe(top_n=15)
 
-    # Also add held position tickers
+    if ranked_tickers:
+        candidates = list(ranked_tickers)
+        logger.info(f"[INGEST] Layer 1 universe: {candidates}")
+    else:
+        # Fallback: residual correlation scanner if ranking fails
+        logger.warning("[INGEST] Daily ranking failed — falling back to residual scanner")
+        candidates = list(set(quant_analyst.run_market_scanner(top_n=10)))
+
+    # Supplement with up to 5 residual scanner picks not already in ranked list
+    try:
+        scanner_extras = [t for t in quant_analyst.run_market_scanner(top_n=15) if t not in candidates]
+        candidates.extend(scanner_extras[:5])
+    except Exception:
+        pass  # Non-critical — ranked list is sufficient
+
+    # Always add held position tickers (for exit management)
     for pos in positions:
         t = pos.get("ticker", "")
         if t and t not in candidates:
             candidates.append(t)
+
+    logger.info(f"[INGEST] Total candidate tickers: {len(candidates)} | First 10: {candidates[:10]}")
 
     return {
         "portfolio": portfolio,

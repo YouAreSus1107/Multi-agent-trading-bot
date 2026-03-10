@@ -139,13 +139,15 @@ CATALYST_KEYWORDS = [
 # ============================================
 RISK_CONFIG = {
     "vix_kill_switch": 45,              # Higher threshold for day trading
-    "max_position_pct": 0.20,           # Up to 20% per trade
+    "max_position_pct": 0.20,           # Legacy / unused by new sizing; kept for hedge logic
+    "risk_per_trade_pct": 0.05,         # 5% of equity risked per trade (matches backtest risk_per_trade)
+    "stop_r_atr": 1.5,                  # Stop = 1.5 * ATR (matches backtest stop_r)
+    "max_leverage": 10.0,               # Leverage ceiling (matches backtest cap of 10x)
     "max_daily_loss_pct": 0.05,         # 5% daily loss halt
     "min_sharpe_ratio": -2.0,            # Very low -- let Research Team debate decide quality
     "risk_free_rate": 0.05,
     "default_stop_loss_pct": 0.015,     # 1.5% stop loss (tight for day trades)
     "take_profit_pct": 0.03,            # 3% take profit
-    "max_trades_per_cycle": 5,          # Cap per fast cycle
 }
 
 # ============================================
@@ -153,7 +155,7 @@ RISK_CONFIG = {
 # ============================================
 STRATEGY_CONFIG = {
     "min_sentiment_score": 0.40,
-    "min_trend_score": 45,              # Lower bar to enter
+    "min_trend_score": 56,              # Backtest gate: hybrid_score >= 56 to enter
     "rsi_overbought": 80,
     "rsi_oversold": 25,
     "bollinger_period": 20,
@@ -162,10 +164,12 @@ STRATEGY_CONFIG = {
 }
 
 # ============================================
-# Timing Configuration
+# Core Bot System Timers
 # ============================================
-FAST_LOOP_SECONDS = 120                 # Technical + Fundamentals (2 min)
-SLOW_LOOP_SECONDS = 300                 # News + Sentiment (5 min)
+# Main loop frequency. Using 300 seconds (5 minutes) to precisely match the optimal MTF backtest.
+FAST_LOOP_SECONDS = 300  
+# Research team runs once every N loops 
+SLOW_LOOP_MULTIPLIER = 3
 LOOP_INTERVAL_SECONDS = FAST_LOOP_SECONDS
 
 # US Market hours (Eastern Time)

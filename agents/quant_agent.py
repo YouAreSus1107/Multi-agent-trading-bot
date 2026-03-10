@@ -1,6 +1,7 @@
 """
 Quant Analyst Agent
-Mathematical engine for Factor Attribution, XGBoost Probability, and GBM Risk Modeling.
+Mathematical engine for Factor Attribution, XGBoost Probability, GBM Risk Modeling,
+and Full-Market Residual Correlation Scanning.
 """
 
 import pandas as pd
@@ -11,6 +12,8 @@ from scipy.stats import norm
 import xgboost as xgb
 from datetime import datetime, timedelta
 import warnings
+import json
+import os
 
 from utils.logger import get_logger
 
@@ -19,12 +22,168 @@ logger = get_logger("quant_analyst")
 # Suppress warnings from yfinance and statsmodels
 warnings.filterwarnings('ignore')
 
+UNIVERSE_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "market_universe.json")
+
+# Minimum thresholds for scanner candidates
+MIN_PRICE = 3.0             # No penny stocks
+MIN_AVG_VOLUME = 500_000    # Minimum average daily volume (shares)
+RESIDUAL_LOOKBACK = 5       # Days of residual momentum to sum
+TOP_N_CANDIDATES = 30       # How many tickers to return
+
+
 class QuantAnalystAgent:
     """Pre-market quantitative mathematical modeling."""
 
     def __init__(self):
         # We can cache daily models if needed
         self.xgboost_models = {}
+        # Cache market scanner results for the trading day
+        self._scanner_cache = None
+        self._scanner_cache_date = None
+
+    # ─── MARKET-WIDE RESIDUAL CORRELATION SCANNER ──────────────────────────
+    def run_market_scanner(self, top_n: int = TOP_N_CANDIDATES) -> list[str]:
+        """
+        Scan the full market universe for idiosyncratic momentum using
+        Residual Correlation analysis.
+
+        For each stock:
+          1. Regress daily returns against SPY (market baseline)
+          2. Extract the residual (unexplained by the market)
+          3. Sum the last N days of residual = idiosyncratic momentum score
+          4. Filter for liquidity and price floor
+          5. Rank and return the top N tickers
+
+        Returns: sorted list of top_n ticker symbols with strongest
+                 idiosyncratic breakout signals.
+        """
+        # Cache for the trading day — only scan once per day
+        today = datetime.now().date()
+        if self._scanner_cache_date == today and self._scanner_cache:
+            logger.info(f"[SCANNER] Using cached scan from today ({len(self._scanner_cache)} tickers)")
+            return self._scanner_cache
+
+        # 1. Load the universe
+        try:
+            with open(UNIVERSE_FILE, "r") as f:
+                universe = json.load(f)["tickers"]
+        except Exception as e:
+            logger.error(f"[SCANNER] Failed to load market universe: {e}")
+            return []
+
+        # 2. Batch download 30 days of daily data (includes SPY as baseline)
+        all_tickers = list(set(universe + ["SPY"]))
+        logger.info(f"[SCANNER] Downloading 30d data for {len(all_tickers)} tickers...")
+
+        try:
+            raw = yf.download(
+                all_tickers,
+                period="30d",
+                auto_adjust=True,
+                progress=False,
+                threads=True,
+            )
+        except Exception as e:
+            logger.error(f"[SCANNER] yfinance batch download failed: {e}")
+            return []
+
+        if raw.empty:
+            logger.error("[SCANNER] Empty batch download — no data returned")
+            return []
+
+        # 3. Extract Close prices and Volume
+        try:
+            closes = raw["Close"]
+            volumes = raw["Volume"]
+        except KeyError:
+            logger.error("[SCANNER] Missing Close/Volume columns in batch data")
+            return []
+
+        # Drop tickers with insufficient data
+        min_rows = RESIDUAL_LOOKBACK + 5  # Need enough history for regression
+        valid_tickers = closes.columns[closes.count() >= min_rows].tolist()
+        if "SPY" not in valid_tickers:
+            logger.error("[SCANNER] SPY data not available — cannot compute residuals")
+            return []
+
+        closes = closes[valid_tickers].ffill()
+        volumes = volumes[[t for t in valid_tickers if t in volumes.columns]].ffill()
+
+        # 4. Compute log returns
+        log_returns = np.log(closes / closes.shift(1)).dropna()
+
+        if "SPY" not in log_returns.columns:
+            logger.error("[SCANNER] SPY returns not computed")
+            return []
+
+        spy_returns = log_returns["SPY"]
+        stock_tickers = [t for t in log_returns.columns if t != "SPY"]
+
+        # 5. Regress each stock against SPY and compute residual momentum
+        scores = {}
+        for ticker in stock_tickers:
+            try:
+                stock_ret = log_returns[ticker].dropna()
+                # Align dates between stock and SPY
+                common = stock_ret.index.intersection(spy_returns.index)
+                if len(common) < min_rows:
+                    continue
+
+                y = stock_ret.loc[common].values
+                X = sm.add_constant(spy_returns.loc[common].values)
+                model = sm.OLS(y, X).fit()
+
+                # Residual = actual return - predicted market return
+                residuals = model.resid
+
+                # Sum last N days of residual = idiosyncratic momentum
+                residual_momentum = float(residuals[-RESIDUAL_LOOKBACK:].sum())
+
+                # Get latest price and average volume for filtering
+                last_price = float(closes[ticker].iloc[-1]) if ticker in closes.columns else 0
+                avg_vol = float(volumes[ticker].iloc[-10:].mean()) if ticker in volumes.columns else 0
+
+                # Filter: minimum price and volume
+                if last_price < MIN_PRICE:
+                    continue
+                if avg_vol < MIN_AVG_VOLUME:
+                    continue
+
+                scores[ticker] = {
+                    "residual_momentum": residual_momentum,
+                    "last_price": last_price,
+                    "avg_volume": avg_vol,
+                    "alpha": float(model.params[0]) * 252,  # Annualized alpha
+                    "beta": float(model.params[1]),
+                    "r_squared": float(model.rsquared),
+                }
+            except Exception:
+                continue  # Skip problematic tickers silently
+
+        if not scores:
+            logger.warning("[SCANNER] No tickers passed filter — returning empty")
+            return []
+
+        # 6. Rank by residual momentum (highest = strongest idiosyncratic breakout)
+        ranked = sorted(scores.items(), key=lambda x: x[1]["residual_momentum"], reverse=True)
+        top = ranked[:top_n]
+
+        # Log the top picks
+        logger.info(f"[SCANNER] Top {len(top)} idiosyncratic momentum tickers:")
+        for i, (ticker, data) in enumerate(top[:10]):
+            logger.info(
+                f"  #{i+1} {ticker}: residual_mom={data['residual_momentum']:+.4f}, "
+                f"price=${data['last_price']:.2f}, vol={data['avg_volume']:,.0f}, "
+                f"α={data['alpha']:+.2f}, β={data['beta']:.2f}"
+            )
+
+        result = [t for t, _ in top]
+
+        # Cache for the day
+        self._scanner_cache = result
+        self._scanner_cache_date = today
+
+        return result
 
     def analyze(self, tickers: list[str]) -> dict:
         """

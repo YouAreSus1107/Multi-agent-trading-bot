@@ -23,18 +23,18 @@ logger = get_logger("trader_agent")
 MEMORY_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "execution_memory.json")
 
 # ATR multiplier for stop placement
-ATR_STOP_MULTIPLIER  = 1.5   # stop = entry - 1.5 × ATR
-ATR_TARGET_MULTIPLIER = 3.0  # target = entry + 3.0 × ATR (2:1 R:R soft guide)
+ATR_STOP_MULTIPLIER  = 1.0   # stop = entry - 1.0 × ATR (Optimal Backtest Param)
+ATR_TARGET_MULTIPLIER = 2.0  # target = entry + 2.0 × ATR (Optimal Backtest Param)
 
-# Z-score threshold to trigger mean-reversion exit
+# Trader thresholds
 ZSCORE_EXIT_THRESHOLD = 3.0
 
 # Minimum execution conviction from research team
-MIN_CONVICTION = 50
+MIN_CONVICTION = 75   # Only execute on high-conviction ideas
 
 # Max number of cycles to wait for entry setup (15 cycles × 2 min ≈ 30 min)
 PENDING_ENTRY_TTL = 15
-
+MAX_SLIPPAGE = 0.005  # 0.5% max slippage on entry
 
 class TraderAgent:
     """
@@ -107,6 +107,47 @@ class TraderAgent:
                     "urgency": "high" if conviction > 70 else "normal",
                 })
 
+        # ── STEP 1b: DIRECT QUANT SCAN — Auto-queue ANY ticker meeting entry criteria ──
+        # This bypasses the LLM gatekeeper. The math model autonomously finds opportunities.
+        held_tickers = {p.get("ticker", "") for p in positions}
+        already_queued = set(self.memory["pending_entries"].keys())
+
+        auto_queued = 0
+        for ticker, tech in technical_data.items():
+            if ticker in held_tickers or ticker in already_queued:
+                continue  # Skip tickers we already hold or have queued
+
+            score = tech.get("score", 0)
+            exec_sc = tech.get("exec_score", 0)
+            dr = tech.get("delta_ratio", 0.5)
+            price = tech.get("current_price", 0)
+            quant_entry = tech.get("quant_entry_signal", False)
+
+            # Check long criteria (backtest evaluate_bull_entry params, no MTF gate)
+            if quant_entry and score >= 56 and exec_sc >= 36 and dr >= 0.55 and price > 0:
+                logger.info(
+                    f"Trader: AUTO-QUEUE {ticker} from quant scan "
+                    f"(score={score}, exec={exec_sc}, δ={dr:.2f})"
+                )
+                self.memory["pending_entries"][ticker] = {
+                    "decision": {
+                        "ticker": ticker,
+                        "action": "buy",
+                        "conviction": 80,  # High conviction — math model confirmed
+                        "reasoning": f"Auto-detected quant breakout: score={score}, exec={exec_sc}, δ={dr:.2f}",
+                    },
+                    "added_cycle": cycle,
+                    "expires_in": PENDING_ENTRY_TTL,
+                    "atr_5m": 0.0,
+                    "stop_price": 0.0,
+                    "trailing_stop": 0.0,
+                    "entry_price": 0.0,
+                }
+                auto_queued += 1
+
+        if auto_queued > 0:
+            strategy_notes.append(f"Quant scan auto-queued {auto_queued} ticker(s) bypassing LLM.")
+
         # ── STEP 2: Evaluate pending entries — hybrid gate ─────────────────────
         expired = []
         for ticker, entry_data in self.memory["pending_entries"].items():
@@ -124,46 +165,38 @@ class TraderAgent:
                 strategy_notes.append(f"Waiting on {ticker}: no technical data.")
                 continue
 
-            # ── HYBRID ENTRY GATE ──────────────────────────────────────────────
-            # TIER A — Trend Baseline (classic indicators, max 40 pts)
-            raw_score = tech.get("score", 50)         # hybrid score (0-100)
-            trend_score = tech.get("trend_score", 20)  # 0-40
-            rsi = tech.get("rsi", 50)
+            # ── ENTRY GATE (matches backtest evaluate_bull_entry, no MTF regime gate) ──
+            # Parameters: score>=56 / exec>=36 / delta>=0.55 / vwap_z<=2.5
+            # MTF is still computed and displayed but is NOT a blocking condition.
+            # (MTF regime gating removed per user request — to be replaced with new model)
 
-            trend_aligned = (
-                trend_score >= 18                 # at least slightly bullish classic signal
-                and rsi < 72                      # not RSI overbought
-                and "EMA100_BEARISH" not in tech.get("signals", [])  # not fighting the macro trend
-            )
+            raw_score   = tech.get("score", 50)         # hybrid score
+            exec_score  = tech.get("exec_score", 30)    # intraday momentum
+            z           = tech.get("vwap_zscore", 0.0)
+            dr          = tech.get("delta_ratio", 0.5)
+            price       = tech.get("current_price", 0)
+            atr         = tech.get("atr_5m", 0.0)
+            mtf         = tech.get("mtf_total_pos", 0)  # informational only
+            quant_entry = tech.get("quant_entry_signal", False)
 
-            # TIER B — Execution Trigger (quant metrics, max 60 pts)
-            z = tech.get("vwap_zscore", 0.0)
-            dr = tech.get("delta_ratio", 0.5)
-            smart_bounce = tech.get("smart_bounce", False)
-            price = tech.get("current_price", 0)
-            atr = tech.get("atr_5m", 0.0)
-
-            # Strongest signal: mean-reversion off VWAP extreme + volume confirmation
-            is_mean_reversion_entry = (
-                z < -2.0
-                and dr > 0.55
+            # --- LONG ENTRY GATE ---
+            is_strict_long = (
+                quant_entry           # hybrid>=56 AND delta>0.55 AND vwap_z<=2.5
+                and exec_score >= 36  # Good intraday breakout momentum
                 and price > 0
             )
 
-            # Continuation signal: price near VWAP, volume bullish, trend aligned
-            is_continuation_entry = (
-                abs(z) < 1.0              # price close to VWAP (fair value zone)
-                and dr > 0.60             # strong institutional buying
-                and raw_score >= 55       # hybrid score shows bullish momentum
+            # --- SHORT ENTRY (not yet implemented, kept for future use) ---
+            is_strict_short = (
+                mtf == -4
+                and raw_score <= 45
+                and exec_score >= 34
+                and dr <= 0.40
+                and price > 0
             )
 
-            # Smart bounce bonus (strictest institutional pattern)
-            is_smart_bounce_entry = smart_bounce and dr > 0.55 and trend_aligned
-
-            fire_entry = (
-                trend_aligned
-                and (is_mean_reversion_entry or is_continuation_entry or is_smart_bounce_entry)
-            )
+            # Execute if long criteria met
+            fire_entry = is_strict_long
 
             if fire_entry:
                 # Calculate ATR-based stop on entry
@@ -177,16 +210,12 @@ class TraderAgent:
                 entry_data["trailing_stop"] = stop_price  # initial trailing = initial stop
 
                 dec = entry_data["decision"]
-                entry_type = (
-                    "mean_reversion" if is_mean_reversion_entry
-                    else "smart_bounce" if is_smart_bounce_entry
-                    else "continuation"
-                )
+                entry_type = "strict_mtf_breakout"
 
                 logger.info(
                     f"Trader: FIRE {ticker} [{entry_type}] @ ${price:.2f} | "
                     f"stop=${stop_price:.2f} | target=${target_price:.2f} | "
-                    f"Z={z:+.2f} | δ={dr:.2f} | ATR=${atr:.3f}"
+                    f"MTF={mtf} | Z={z:+.2f} | δ={dr:.2f} | ATR=${atr:.3f}"
                 )
 
                 trader_signals.append({
@@ -203,7 +232,7 @@ class TraderAgent:
                     "vwap_zscore": z,
                     "delta_ratio": dr,
                     "reasoning": (
-                        f"[{entry_type}] Hybrid entry: trend={trend_score:.0f}/40, "
+                        f"[{entry_type}] MTF entry: MTF={mtf}, score={raw_score}/100, "
                         f"Z={z:+.2f}, δ={dr:.2f}, ATR=${atr:.3f}, "
                         f"stop=${stop_price:.2f}. "
                         f"Research: {dec.get('reasoning', '')[:100]}"
@@ -213,13 +242,20 @@ class TraderAgent:
 
             else:
                 wait_reason = []
-                if not trend_aligned:
-                    wait_reason.append(f"trend weak ({trend_score:.0f}/40)")
-                if z > 1.5:
-                    wait_reason.append(f"Z={z:+.2f} overbought")
-                if dr <= 0.50:
-                    wait_reason.append(f"δ={dr:.2f} (no buying pressure)")
-                strategy_notes.append(f"Waiting on {ticker}: {', '.join(wait_reason) or 'conditions not met'}")
+                if not quant_entry:
+                    if raw_score < 56:
+                        wait_reason.append(f"score={raw_score} (needs >=56)")
+                    if dr <= 0.55:
+                        wait_reason.append(f"δ={dr:.2f} (needs >0.55)")
+                    if z > 2.5:
+                        wait_reason.append(f"vwap_z={z:.2f} (overbought)")
+                if exec_score < 36:
+                    wait_reason.append(f"exec={exec_score} (needs >=36)")
+                # Show MTF as informational context only
+                strategy_notes.append(
+                    f"Waiting on {ticker}: {', '.join(wait_reason) or 'conditions not met'} "
+                    f"[MTF={mtf}]"
+                )
 
         for t in expired:
             self.memory["pending_entries"].pop(t, None)

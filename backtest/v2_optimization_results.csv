@@ -1,0 +1,2 @@
+timestamp,trial_number,composite_score,avg_profit_factor,avg_win_rate,avg_drawdown,avg_pnl,total_trades,min_period_score,long_hybrid,long_exec,long_vwap,short_hybrid,short_exec,short_vwap,long_delta_min,short_delta_max,stop_r,target_r
+2026-03-11 00:22:26,0,0.0923,1.337,53.96,23.87,0.2137,194,0.0923,65.0,40.0,2.5,65.0,40.0,-2.5,0.6,0.4,3.0,3.5

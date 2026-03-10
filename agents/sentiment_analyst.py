@@ -24,12 +24,12 @@ YOU MUST RESPOND WITH VALID JSON ONLY.
 Response format:
 {
     "ticker_sentiments": {
-        "PLTR": {"score": 0.78, "momentum": "rising", "note": "Defense contract buzz"},
-        "NVDA": {"score": 0.55, "momentum": "flat", "note": "Mixed AI regulation news"}
+        "TICKA": {"score": 0.78, "momentum": "rising", "note": "Defense contract buzz"},
+        "TICKB": {"score": 0.55, "momentum": "flat", "note": "Mixed AI regulation news"}
     },
     "market_mood": "cautious",
     "fear_greed_estimate": 35,
-    "contrarian_signals": ["RIVN oversold on overreaction"],
+    "contrarian_signals": ["TICKC oversold on overreaction"],
     "summary": "Overall market cautious but defense names seeing bullish sentiment momentum"
 }
 

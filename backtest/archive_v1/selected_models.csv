@@ -1,0 +1,6 @@
+category,long_hybrid,long_exec,long_vwap,short_hybrid,short_exec,short_vwap,stop_r,target_r,trail_1r,trail_2r,trail_activation_r,trailing_distance,use_mtf
+MTF Trend Follower (Loose Entry),65,30,0.5,35,30,-0.5,1.5,3.0,False,False,0.0,0.0,True
+MTF Strict Execution (High Conviction),70,45,-1.0,30,45,1.0,1.5,3.0,False,False,0.0,0.0,True
+MTF Pullback Buyer (VWAP Bounce),60,50,-2.0,40,50,2.0,1.5,3.0,False,False,0.0,0.0,True
+"Classic Optimized (No Trailing, Fixed Target)",72,35,-1.0,28,35,1.0,1.25,2.5,False,False,0.0,0.0,False
+Classic Runner (Standard Breakeven Trail),68,40,0.0,32,40,0.0,1.5,4.0,True,True,1.5,2.0,False

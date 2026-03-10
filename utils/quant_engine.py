@@ -99,7 +99,9 @@ def compute_vwap_zscore(df_15m: pd.DataFrame, z_window: int = 20) -> dict:
         df["deviation"] = df["close"] - df["vwap"]
 
         # Rolling standard deviation of deviation
-        df["sigma"] = df["deviation"].rolling(window=z_window, min_periods=5).std()
+        # VWAP bands typically use cumulative standard deviation from the start of the day
+        df["variance"] = (df["volume"] * (df["typical_price"] - df["vwap"])**2).cumsum() / df["cum_vol"].replace(0, np.nan)
+        df["sigma"] = np.sqrt(df["variance"])
         df["zscore"] = df["deviation"] / df["sigma"].replace(0, np.nan)
 
         last = df.iloc[-1]
@@ -220,9 +222,55 @@ def build_quant_metrics(df_15m: pd.DataFrame) -> dict:
         VOLUME_BULLISH    → delta_ratio > 0.55
         VOLUME_BEARISH    → delta_ratio < 0.45
     """
-    atr_val = compute_atr_14(df_15m)
-    vwap_data = compute_vwap_zscore(df_15m)
-    delta_data = compute_volume_delta(df_15m)
+    if df_15m is None or df_15m.empty:
+        return {
+            "atr_5m": 0.0, "initial_stop": 0.0, "target_2r": 0.0,
+            "vwap": 0.0, "vwap_zscore": 0.0, "vwap_sigma": 0.0, "vwap_signal": "neutral", "price_vs_vwap": "unknown",
+            "delta_ratio": 0.5, "buy_pressure": 0, "sell_pressure": 0, "smart_bounce": False, "last_bar_buy_pct": 0.5,
+            "mtf_total_pos": 0, "tsl_1": 0.0,
+            "quant_signals": []
+        }
+
+    last_row = df_15m.iloc[-1]
+    
+    # Extract MTF early if precomputed (backtesting fast-path)
+    mtf_total_pos = int(last_row.get("mtf_total_pos", 0)) if "mtf_total_pos" in df_15m.columns else 0
+    tsl_1 = float(last_row.get("tsl_1", 0.0)) if "tsl_1" in df_15m.columns else 0.0
+    
+    if "atr_5m" in df_15m.columns and "vwap_zscore" in df_15m.columns:
+        # Fast-Path: Backtester precomputed caching to bypass loop execution scaling
+        atr_val = float(last_row["atr_5m"]) if not pd.isna(last_row["atr_5m"]) else 0.0
+        
+        vwap_data = {
+            "vwap": float(last_row["vwap"]),
+            "vwap_zscore": float(last_row["vwap_zscore"]),
+            "sigma": float(last_row["sigma"]) if "sigma" in df_15m.columns else 0.0,
+            "signal": "overbought" if last_row["vwap_zscore"] > 2.5 else "oversold" if last_row["vwap_zscore"] < -2.5 else "neutral",
+            "price_vs_vwap": "above" if last_row["close"] > last_row["vwap"] else "below"
+        }
+        
+        delta_data = {
+            "buy_pressure": float(last_row["buy_pressure"]),
+            "sell_pressure": float(last_row["sell_pressure"]),
+            "delta_ratio": float(last_row["delta_ratio"]),
+            "smart_bounce": bool(last_row["smart_bounce"]),
+            "last_bar_buy_pct": float(last_row["last_bar_buy_pct"])
+        }
+    else:
+        # Live execution or explicit manual pass
+        atr_val = compute_atr_14(df_15m)
+        vwap_data = compute_vwap_zscore(df_15m)
+        delta_data = compute_volume_delta(df_15m)
+        
+        # Inject MTF calculation into the live flow
+        if "mtf_total_pos" not in df_15m.columns:
+            df_mtf = precompute_mtf_tsl_for_ticker(df_15m)
+            last_mtf = df_mtf.iloc[-1]
+            mtf_total_pos = int(last_mtf.get("mtf_total_pos", 0))
+            tsl_1 = float(last_mtf.get("tsl_1", 0.0))
+        else:
+            mtf_total_pos = int(last_row.get("mtf_total_pos", 0))
+            tsl_1 = float(last_row.get("tsl_1", 0.0))
 
     # Derive current price
     current_price = 0.0
@@ -269,6 +317,195 @@ def build_quant_metrics(df_15m: pd.DataFrame) -> dict:
         "sell_pressure": delta_data.get("sell_pressure", 0),
         "smart_bounce": delta_data.get("smart_bounce", False),
         "last_bar_buy_pct": delta_data.get("last_bar_buy_pct", 0.5),
+        # MTF Setup
+        "mtf_total_pos": mtf_total_pos,
+        "tsl_1": tsl_1,
         # Signal labels for research prompts
         "quant_signals": quant_signals,
     }
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Pine Script: MTF Trailing SL [QuantNomad]
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _calc_tsl_series(df: pd.DataFrame, atr_length: int = 14, atr_mult: float = 2.0) -> pd.Series:
+    """Helper to compute the TSL on a given resolution timeframe."""
+    if len(df) < atr_length + 1:
+        return pd.Series(np.nan, index=df.index)
+
+    highs = df["high"].values
+    lows = df["low"].values
+    closes = df["close"].values
+
+    tr = np.zeros(len(df))
+    tr[1:] = np.maximum(
+        highs[1:] - lows[1:],
+        np.maximum(np.abs(highs[1:] - closes[:-1]), np.abs(lows[1:] - closes[:-1]))
+    )
+
+    atr = np.zeros(len(df))
+    atr[atr_length] = np.mean(tr[1:atr_length+1])
+    for i in range(atr_length + 1, len(df)):
+        atr[i] = (atr[i-1] * (atr_length - 1) + tr[i]) / atr_length
+
+    sl_val = atr * atr_mult
+
+    pos = np.zeros(len(df))
+    tsl = np.zeros(len(df))
+
+    # Calculate sequentially as per Pine Script logic
+    for i in range(1, len(df)):
+        prev_pos = pos[i-1]
+        prev_tsl = tsl[i-1]
+
+        long_signal = (prev_pos != 1) and (highs[i] > prev_tsl)
+        short_signal = (prev_pos != -1) and (lows[i] < prev_tsl)
+
+        if short_signal:
+            curr_tsl = highs[i] + sl_val[i]
+        elif long_signal:
+            curr_tsl = lows[i] - sl_val[i]
+        elif prev_pos == 1:
+            curr_tsl = max(lows[i] - sl_val[i], prev_tsl)
+        elif prev_pos == -1:
+            curr_tsl = min(highs[i] + sl_val[i], prev_tsl)
+        else:
+            curr_tsl = prev_tsl
+
+        if long_signal:
+            pos[i] = 1
+        elif short_signal:
+            pos[i] = -1
+        else:
+            pos[i] = prev_pos
+
+        tsl[i] = curr_tsl
+
+    return pd.Series(tsl, index=df.index)
+
+
+def precompute_mtf_tsl_for_ticker(df_5m: pd.DataFrame, atr_length: int = 14, atr_mult: float = 2.0) -> pd.DataFrame:
+    """
+    Computes QuantNomad's MTF Trailing SL upfront using localized pandas resampling.
+    TF1 = 5m (base), TF2 = 120m, TF3 = 180m, TF4 = 240m.
+    Adds `mtf_total_pos` and `tsl_1` columns directly to the DataFrame.
+    """
+    df = df_5m.copy()
+    if df.empty or len(df) < atr_length + 2:
+        df["mtf_total_pos"] = 0
+        df["tsl_1"] = 0.0
+        return df
+
+    try:
+        # Build Higher Timeframes using resample
+        df_120m = df.resample('120min').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'}).dropna()
+        df_180m = df.resample('180min').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'}).dropna()
+        df_240m = df.resample('240min').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'}).dropna()
+
+        # Compute TSL for each
+        tsl_1 = _calc_tsl_series(df, atr_length, atr_mult)
+        tsl_2 = _calc_tsl_series(df_120m, atr_length, atr_mult)
+        tsl_3 = _calc_tsl_series(df_180m, atr_length, atr_mult)
+        tsl_4 = _calc_tsl_series(df_240m, atr_length, atr_mult)
+
+        # Re-align back to 5m timeframe using forward fill mapping
+        df["tsl_1"] = tsl_1
+        
+        tsl_2_df = pd.DataFrame({"tsl_2": tsl_2})
+        tsl_3_df = pd.DataFrame({"tsl_3": tsl_3})
+        tsl_4_df = pd.DataFrame({"tsl_4": tsl_4})
+        
+        df = pd.merge_asof(df, tsl_2_df, left_index=True, right_index=True, direction='backward')
+        df = pd.merge_asof(df, tsl_3_df, left_index=True, right_index=True, direction='backward')
+        df = pd.merge_asof(df, tsl_4_df, left_index=True, right_index=True, direction='backward')
+        
+        # Fill missing early NaNs
+        df = df.ffill().bfill()
+
+        # Determine positions logic from PineScript:
+        def calc_pos(series_low, series_high, series_tsl):
+            pos = np.zeros(len(df))
+            lows = series_low.values
+            highs = series_high.values
+            tsls = series_tsl.values
+            for i in range(1, len(df)):
+                if lows[i] <= tsls[i]:
+                    pos[i] = -1
+                elif highs[i] >= tsls[i]:
+                    pos[i] = 1
+                else:
+                    pos[i] = pos[i-1]
+            return pos
+
+        pos1 = calc_pos(df["low"], df["high"], df["tsl_1"])
+        pos2 = calc_pos(df["low"], df["high"], df["tsl_2"])
+        pos3 = calc_pos(df["low"], df["high"], df["tsl_3"])
+        pos4 = calc_pos(df["low"], df["high"], df["tsl_4"])
+
+        df["mtf_total_pos"] = pos1 + pos2 + pos3 + pos4
+        
+        return df
+    except Exception as e:
+        logger.warning(f"MTF TSL computation failed: {e}")
+        df["mtf_total_pos"] = 0
+        df["tsl_1"] = 0.0
+        return df
+
+def precompute_quant_metrics_for_ticker(df_15m: pd.DataFrame, atr_period: int = 14, vwap_z_window: int = 20, volume_sma_window: int = 20) -> pd.DataFrame:
+    """
+    Vectorized O(N) hardware-accelerated computation of ALL classic quant metrics over 
+    the entire dataset upfront. Avoids slicing 20-day Pandas loops.
+    """
+    df = df_15m.copy()
+    if df.empty:
+        return df
+
+    try:
+        # --- 1. ATR Block (Vectorized Wilder's) ---
+        h = df["high"].values
+        l = df["low"].values
+        c = df["close"].values
+        
+        tr = np.maximum(h[1:] - l[1:], np.maximum(np.abs(h[1:] - c[:-1]), np.abs(l[1:] - c[:-1])))
+        tr_series = pd.Series(np.insert(tr, 0, np.nan), index=df.index)
+        # EWM gives an exact vectorized match to Wilder's iterative loop
+        df["atr_5m"] = tr_series.ewm(alpha=1/atr_period, adjust=False).mean().round(4)
+        df["atr_5m"] = df["atr_5m"].fillna(0.0)
+
+        # --- 2. VWAP Z-score Block ---
+        df["typical_price"] = (df["high"] + df["low"] + df["close"]) / 3.0
+        # Compute intraday cumsum resetting per day boundary automatically via grouping
+        df['date'] = df.index.date
+        
+        df["cum_vol"] = df.groupby('date')["volume"].cumsum()
+        tp_vol = df["typical_price"] * df["volume"]
+        df["cum_tp_vol"] = tp_vol.groupby(df['date']).cumsum()
+        
+        df["vwap"] = (df["cum_tp_vol"] / df["cum_vol"].replace(0, np.nan)).ffill().fillna(df["close"])
+        df["deviation"] = df["close"] - df["vwap"]
+        df["sigma"] = df["deviation"].rolling(window=vwap_z_window, min_periods=5).std()
+        df["vwap_zscore"] = (df["deviation"] / df["sigma"].replace(0, np.nan)).round(3).fillna(0.0)
+        
+        # --- 3. Volume Delta Microstructure Block ---
+        hl_range = (df["high"] - df["low"]).replace(0, np.nan)
+        df["buy_frac"] = ((df["close"] - df["low"]) / hl_range).fillna(0.5)
+        df["sell_frac"] = ((df["high"] - df["close"]) / hl_range).fillna(0.5)
+        df["buy_vol"] = df["buy_frac"] * df["volume"]
+        df["sell_vol"] = df["sell_frac"] * df["volume"]
+        
+        df["buy_pressure"] = df["buy_vol"].rolling(window=volume_sma_window, min_periods=1).sum().round(0)
+        df["sell_pressure"] = df["sell_vol"].rolling(window=volume_sma_window, min_periods=1).sum().round(0)
+        
+        total_pressure = df["buy_pressure"] + df["sell_pressure"]
+        df["delta_ratio"] = (df["buy_pressure"] / total_pressure.replace(0, 1.0)).round(3)
+        
+        vol_sma = df["volume"].rolling(volume_sma_window, min_periods=1).mean()
+        df["smart_bounce"] = (df["buy_frac"] > 0.75) & (df["volume"] > vol_sma * 1.5)
+        df["last_bar_buy_pct"] = df["buy_frac"].round(3)
+
+        df.drop(columns=['date', 'typical_price', 'cum_vol', 'cum_tp_vol', 'deviation', 'buy_frac', 'sell_frac', 'buy_vol', 'sell_vol'], inplace=True, errors='ignore')
+        return df
+    except Exception as e:
+        logger.warning(f"Vectorized precomputation failed: {e}")
+        return df

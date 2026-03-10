@@ -40,17 +40,30 @@ def get_logger(agent_name: str = "system") -> logging.Logger:
     logger = logging.getLogger(f"warroom.{agent_name}")
 
     if not logger.handlers:
-        log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "logs")
-        os.makedirs(log_dir, exist_ok=True)
-        log_file = os.path.join(log_dir, "warroom.log")
-        
-        from logging.handlers import RotatingFileHandler
-        
-        # Cap the log file at 5MB with 1 backup, automatically deleting old bloat
-        handler = RotatingFileHandler(log_file, maxBytes=5*1024*1024, backupCount=1, encoding='utf-8')
-        handler.setFormatter(JsonFormatter())
-        logger.addHandler(handler)
-        logger.setLevel(logging.INFO)
+        if os.environ.get("DISABLE_FILE_LOGGING") == "1":
+            logger.addHandler(logging.NullHandler())
+            logger.setLevel(logging.WARNING)
+        else:
+            log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "logs")
+            os.makedirs(log_dir, exist_ok=True)
+            log_file = os.path.join(log_dir, "warroom.log")
+            
+            from logging.handlers import RotatingFileHandler
+            
+            class SafeRotatingFileHandler(RotatingFileHandler):
+                """RotatingFileHandler that silently handles PermissionError on Windows/OneDrive."""
+                def doRollover(self):
+                    try:
+                        super().doRollover()
+                    except PermissionError:
+                        pass  # OneDrive or another process has the backup locked — skip rotation
+            
+            # Cap the log file at 5MB with 1 backup, automatically deleting old bloat
+            handler = SafeRotatingFileHandler(log_file, maxBytes=5*1024*1024, backupCount=1, encoding='utf-8')
+            handler.setFormatter(JsonFormatter())
+            logger.addHandler(handler)
+            logger.setLevel(logging.INFO)
+            
         logger.propagate = False
 
     return logger

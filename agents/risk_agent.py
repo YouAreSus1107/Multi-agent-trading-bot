@@ -127,100 +127,99 @@ class RiskManagerAgent:
                 ),
             }
 
-        # Only approve up to `slots_available` trades (sorted by confidence)
+        # ── BACKTEST-MATCHING POSITION SIZING ──────────────────────────────────
+        # This mirrors the exact formula in run_backtest_v2.py:
+        #
+        #   stop_dist      = stop_r (1.5) * ATR_5m
+        #   stop_dist_pct  = stop_dist / entry_price
+        #   leverage       = min(risk_pct / stop_dist_pct, 10.0)
+        #   position_$     = equity * leverage
+        #   qty            = position_$ / price
+        #
+        # PnL impact when stop hits = equity * risk_pct (5%) → exactly 1 risk-unit.
+        # Buying power needed       = equity * leverage (up to 10x).
+        # ─────────────────────────────────────────────────────────────────────────
+
         valid_signals.sort(key=lambda s: s.get("confidence", 0), reverse=True)
-        valid_signals = valid_signals[:slots_available]
 
-        # EQUAL-WEIGHT ALLOCATION based on REMAINING capacity
-        # Calculate how much capital is already deployed
-        deployed_value = sum(
-            abs(p.get("market_value", p.get("qty", 0) * p.get("current_price", 0)))
-            for p in positions
-        )
-        remaining_equity = max(0, equity - deployed_value)
+        target_risk_pct = RISK_CONFIG.get("risk_per_trade_pct", 0.05)   # 5%
+        stop_r          = RISK_CONFIG.get("stop_r_atr", 1.5)             # 1.5 × ATR stop
+        max_leverage    = RISK_CONFIG.get("max_leverage", 2.0)           # HARD CAP: 2x equity per trade
 
-        # Risk budget per trade: target risking 1% of total equity per trade
-        # Equation: Shares = Risk_Dollars / Stop_Distance_Dollars
-        target_risk_pct = RISK_CONFIG.get("risk_per_trade_pct", 0.01)
-        risk_budget_dollars = equity * target_risk_pct
-
-        # Keep 25% cash reserve minimum
-        allocatable = min(remaining_equity * 0.75, buying_power * 0.85)
-
-        if allocatable < 200:
-            for s in valid_signals:
-                rejected.append({"ticker": s.get("ticker", ""), "reason": f"Low buying power (${buying_power:,.0f})"})
-            return {
-                "approved_trades": [],
-                "rejected_trades": rejected,
-                "halt": False,
-                "hedge_mode": False,
-                "hedge_actions": [],
-                "risk_summary": (
-                    f"Insufficient allocatable capital (${allocatable:,.0f}). "
-                    f"BP: ${buying_power:,.0f}. Deployed: ${deployed_value:,.0f}. "
-                    f"Positions: {existing_count}."
-                ),
-            }
-
-        max_per_trade_equity = equity * RISK_CONFIG["max_position_pct"]
-
-        approved = []
-        running_cost = 0  # Track cumulative cost to avoid over-spending
+        # Track how much buying power we will commit this cycle
+        # Alpaca Day Trading Buying Power is 4x Equity. We leave a 10% buffer.
+        running_bp_used = 0.0
+        approved        = []
 
         for signal in valid_signals:
-            ticker = signal.get("ticker", "")
-            direction = signal.get("direction", "long")
-            confidence = signal.get("confidence", 0)
+            ticker        = signal.get("ticker", "")
+            direction     = signal.get("direction", "long")
+            confidence    = signal.get("confidence", 0)
             current_price = signal.get("current_price", 0)
-            
-            # Use 1.5 ATR 5m as the default stop distance, or fallback to 2%
-            atr = signal.get("atr_5m", 0)
-            if atr > 0:
-                stop_distance = 1.5 * atr
-            elif current_price > 0:
-                 stop_distance = current_price * 0.02
-            else:
-                 stop_distance = 1.0
+            atr           = signal.get("atr_5m", 0)
+            stop_loss     = signal.get("stop_loss", 0)
 
-            if current_price and current_price > 0:
-                # Volatility parity sizing: Shares = Risk $ / Stop Distance $
-                ideal_qty = int(risk_budget_dollars / stop_distance)
-                ideal_cost = ideal_qty * current_price
-                
-                # Cap the trade cost to the max_per_trade_equity and allocatable limits
-                capped_cost = min(ideal_cost, max_per_trade_equity, allocatable - running_cost)
-                qty = max(1, int(capped_cost / current_price))
-                actual_cost = qty * current_price
-            else:
-                qty = max(1, int(risk_budget_dollars / stop_distance / 100)) # dummy calculation
-                actual_cost = risk_budget_dollars # dummy 
-
-            if running_cost + actual_cost > allocatable or actual_cost < 50:
-                rejected.append({"ticker": ticker, "reason": "Insufficient remaining allocation"})
+            if current_price <= 0:
+                rejected.append({"ticker": ticker, "reason": "Zero price"})
                 continue
 
-            running_cost += actual_cost
+            # 1. Compute stop distance ($ per share)
+            if stop_loss > 0 and current_price > stop_loss:
+                stop_dist_dollars = current_price - stop_loss
+            elif atr > 0:
+                stop_dist_dollars = stop_r * atr          # backtest default: 1.5 × ATR
+            else:
+                stop_dist_dollars = current_price * 0.015  # fallback 1.5%
+
+            stop_dist_pct = stop_dist_dollars / current_price
+
+            # 2. Leverage = backtest formula, capped at max_leverage
+            leverage = min(target_risk_pct / stop_dist_pct, max_leverage) if stop_dist_pct > 0 else 1.0
+
+            # 3. Position size in dollars and shares
+            position_dollars = equity * leverage
+
+            # 4. Safety: never exceed available buying power (leave 10% buffer)
+            # Maximum allowed total investment limit is 4.0x equity (Alpaca DTBP)
+            max_bp_this_trade = buying_power * 0.90 - running_bp_used
+            if position_dollars > max_bp_this_trade:
+                position_dollars = max_bp_this_trade
+
+            qty = max(1, int(position_dollars / current_price))
+            actual_cost = qty * current_price
+
+            if actual_cost < 50:
+                rejected.append({"ticker": ticker, "reason": "Calculated position too small"})
+                continue
+
+            if running_bp_used + actual_cost > buying_power * 0.90:
+                rejected.append({"ticker": ticker, "reason": f"Insufficient buying power (${buying_power:,.0f})"})
+                continue
+
+            running_bp_used += actual_cost
 
             approved_trade = {
-                "ticker": ticker,
-                "direction": direction,
-                "qty": qty,
+                "ticker":         ticker,
+                "direction":      direction,
+                "qty":            qty,
                 "position_dollars": round(actual_cost, 2),
-                "position_pct": round((actual_cost / equity) * 100, 2) if equity > 0 else 0,
+                "position_pct":   round((actual_cost / equity) * 100, 2) if equity > 0 else 0,
+                "leverage":       round(leverage, 2),
                 "kelly_fraction": 0,
-                "sharpe_ratio": signal.get("sharpe_ratio", 0),
-                "confidence": confidence,
-                "stop_loss_pct": RISK_CONFIG["default_stop_loss_pct"],
-                "current_price": current_price,
+                "sharpe_ratio":   signal.get("sharpe_ratio", 0),
+                "confidence":     confidence,
+                "stop_loss_pct":  RISK_CONFIG["default_stop_loss_pct"],
+                "current_price":  current_price,
             }
             approved.append(approved_trade)
 
             logger.info(
                 f"APPROVED: {direction.upper()} {qty} {ticker} "
-                f"(${actual_cost:,.0f}, {actual_cost/equity:.1%} of portfolio, "
-                f"remaining alloc: ${allocatable - running_cost:,.0f})"
+                f"@ ${current_price:.2f} | stop_dist=${stop_dist_dollars:.3f} "
+                f"({stop_dist_pct:.2%}) | lev={leverage:.2f}x | "
+                f"deploy=${actual_cost:,.0f} ({(actual_cost/equity)*100:.1f}% eq)"
             )
+
 
         return {
             "approved_trades": approved,
