@@ -525,6 +525,8 @@ def get_trading_days(
     return trading_days
 
 
+_DAILY_SELECTION_CACHE = {}
+
 def run_daily_selection(
     all_tickers: dict[str, pd.DataFrame],
     start_date: str = "2023-01-01",
@@ -551,6 +553,13 @@ def run_daily_selection(
     """
     from backtest.indicators import compute_hma_kahlman_regime
     
+    global _DAILY_SELECTION_CACHE
+    cache_key = (start_date, end_date, warmup_days, top_n, fetch_5m)
+    if cache_key in _DAILY_SELECTION_CACHE:
+        if verbose:
+            print(f"  [CACHE] Restoring {len(_DAILY_SELECTION_CACHE[cache_key])} daily rankings from memory...")
+        return _DAILY_SELECTION_CACHE[cache_key]
+        
     trading_days = get_trading_days(all_tickers, start_date, end_date)
     
     if not trading_days:
@@ -614,6 +623,7 @@ def run_daily_selection(
             print(f"  [{trade_date.strftime('%Y-%m-%d')}] Regime={regime.upper():4s} | Top 5: {ticker_str}")
     
     print(f"\n  Daily selection complete: {len(daily_snapshots)} trading days processed")
+    _DAILY_SELECTION_CACHE[cache_key] = daily_snapshots
     return daily_snapshots
 
 
