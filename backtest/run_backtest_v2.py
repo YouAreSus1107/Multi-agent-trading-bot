@@ -193,11 +193,13 @@ def evaluate_bear_entry(quant: dict, trend_score: float, sparm: dict) -> tuple[b
     hybrid_score = round(bear_trend + exec_score)
     hybrid_score = max(0, min(100, hybrid_score))
     
+    short_vwap_thresh = abs(sparm['short_vwap'])
+    
     short_entry = (
         hybrid_score >= sparm['short_hybrid'] and 
         exec_score >= sparm['short_exec'] and
         dr <= sparm['short_delta_max'] and
-        z >= sparm['short_vwap'] # Note: Optimizer should now hunt for positive values (e.g., 2.0)
+        z >= short_vwap_thresh 
     )
     
     return short_entry, f"Score={hybrid_score} Exec={exec_score} DR={dr:.2f} Z={z:.2f} RSI={rsi:.1f}"
@@ -205,23 +207,29 @@ def evaluate_bear_entry(quant: dict, trend_score: float, sparm: dict) -> tuple[b
 
 def evaluate_inverse_etf_entry(quant: dict, trend_score: float, sparm: dict) -> tuple[bool, str]:
     """
-    Long entry on inverse ETFs during bear regime.
-    Uses slightly relaxed MTF conditions based on sparm since these are directional hedges.
+    Mean Reversion Long entry on inverse ETFs during bear regime.
+    Inverse ETFs drop when the market pumps. So we want to buy them when they are heavily oversold.
     """
     exec_score = 30
+    
+    # 1. Require extreme DOWNWARD extension on the Inverse ETF
     z = quant.get('vwap_zscore', 0)
     if z < -2.5: exec_score += 20
-    elif z < -1.5: exec_score += 12
-    elif z < -0.5: exec_score += 6
-    elif z > 2.5: exec_score -= 20
-    elif z > 1.5: exec_score -= 10
-    elif z > 0.5: exec_score -= 3
+    elif z < -2.0: exec_score += 12
+    elif z < -1.5: exec_score += 6
+    # Penalize if it's already pumping
+    elif z > 1.0: exec_score -= 20
     
+    # 2. RSI Oversold Check
+    rsi = quant.get('rsi_14', 50)
+    if rsi < 25: exec_score += 15
+    elif rsi < 30: exec_score += 10
+    
+    # 3. Delta Ratio (Wait for buyers to arrive on the ETF)
     dr = quant.get('delta_ratio', 0.5)
-    if dr > 0.55: exec_score += 14
-    elif dr > 0.65: exec_score += 25
-    elif dr < 0.35: exec_score -= 25
-    elif dr < 0.45: exec_score -= 12
+    if dr > 0.60: exec_score += 15
+    elif dr > 0.55: exec_score += 10
+    elif dr < 0.40: exec_score -= 20
     
     exec_score = max(0, min(60, exec_score))
     
@@ -230,19 +238,20 @@ def evaluate_inverse_etf_entry(quant: dict, trend_score: float, sparm: dict) -> 
     hybrid_score = round(bear_trend + exec_score)
     hybrid_score = max(0, min(100, hybrid_score))
     
-    # Relaxed thresholds for inverse ETF longs compared to regular bearish entries (subtract 10 points)
-    min_hybrid = max(45, sparm['short_hybrid'] - 12)  # Use relative to short_hybrid since inverted
+    # Relaxed thresholds for inverse ETF longs compared to regular bearish entries
+    min_hybrid = max(45, sparm['short_hybrid'] - 12)  
     min_exec = max(30, sparm['short_exec'] - 10)
-    max_dr = min(0.55, sparm['short_delta_max'] + 0.10)
+    
+    short_vwap_thresh = abs(sparm['short_vwap'])
     
     entry = (
         hybrid_score >= min_hybrid and 
         exec_score >= min_exec and 
-        dr <= max_dr and 
-        z >= sparm['short_vwap']
+        dr >= sparm['long_delta_min'] and 
+        z <= -short_vwap_thresh
     )
     
-    return entry, f"Score={hybrid_score} Exec={exec_score} DR={dr:.2f} Z={z:.2f}"
+    return entry, f"Score={hybrid_score} Exec={exec_score} DR={dr:.2f} Z={z:.2f} RSI={rsi:.1f}"
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -468,11 +477,9 @@ def run_backtest_v2(
                     if close_type == 'stop':
                         daily_stopped_tickers.add(pos['ticker'])
                     
-                    # BUG FIX / REALISTIC SIZING:
-                    # Calculate dollar PnL based on the actual dollar amount deployed.
-                    # PnL % represents the un-leveraged move of the underlying asset.
-                    profit_loss_dollars = pos['position_dollars'] * (pnl / 100.0)
-                    equity += profit_loss_dollars
+                    # Leverage is mathematically pre-calculated into `pnl` by manage_position.
+                    # This means `pnl` represents the exact % change on the total account balance.
+                    equity *= (1 + pnl / 100.0)
 
                     trade_history.append({
                         'date': trade_date,
@@ -502,7 +509,7 @@ def run_backtest_v2(
             if effective_regime == 'bull':
                 candidates = [p['ticker'] for p in top_picks if p['ticker'] not in held_tickers]
             else:
-                # Bear: try shorting top picks + longing inverse ETFs
+                # Bear/Chop: try shorting top picks + longing inverse ETFs
                 candidates = [p['ticker'] for p in top_picks if p['ticker'] not in held_tickers]
                 inv_candidates = [etf for etf in INVERSE_ETFS[:5] 
                                   if etf not in held_tickers and etf in intraday_data]
@@ -562,7 +569,7 @@ def run_backtest_v2(
                 if effective_regime == 'bull':
                     entered, reason = evaluate_bull_entry(quant, trend_score, sparm)
                     side = 'long'
-                elif effective_regime == 'bear':
+                elif effective_regime in ['bear', 'chop']:
                     if is_inverse_etf:
                         entered, reason = evaluate_inverse_etf_entry(quant, trend_score, sparm)
                         side = 'long'
@@ -637,9 +644,16 @@ def run_backtest_v2(
 
                 risk_dollars = equity * kelly_fraction
 
-                # Convert Risk to Position Size
-                ideal_qty = risk_dollars / stop_dist if stop_dist > 0 else 1
-                ideal_position_dollars = ideal_qty * entry_price
+                # Convert Risk to Position Size correctly using Volatility Parity
+                stop_pct = stop_dist / entry_price
+                if stop_pct > 0:
+                    ideal_position_dollars = risk_dollars / stop_pct
+                else:
+                    ideal_position_dollars = equity * 0.2  # Fallback
+                    
+                # Hard Cap: Never put more than 50% of nominal equity into a single position
+                max_single_position = equity * 0.5
+                ideal_position_dollars = min(ideal_position_dollars, max_single_position)
 
                 # Apply Time-Based Margin Caps (Portfolio Defense)
                 current_deployed = sum(p['position_dollars'] for p in positions)
@@ -700,10 +714,8 @@ def run_backtest_v2(
                 else:
                     pnl = ((pos['entry_price'] - last_price) / pos['entry_price'] * pos.get('leverage', 1.0)) * 100
                 
-                # BUG FIX: scale equity change by risk_per_trade, not 100% of capital
-                risk_pct = params.get('risk_per_trade', 0.05)
-                equity_change_pct = (pnl / 100) * risk_pct
-                equity *= (1 + equity_change_pct)
+                # Leverage is already mathematically incorporated into `pnl`
+                equity *= (1 + (pnl / 100))
                 trade_history.append({
                     'date': trade_date,
                     'ticker': ticker,
@@ -725,10 +737,8 @@ def run_backtest_v2(
                     else:
                         pnl = ((pos['entry_price'] - last_price) / pos['entry_price'] * pos.get('leverage', 1.0)) * 100
                     
-                    # BUG FIX: scale equity change by risk_per_trade
-                    risk_pct = params.get('risk_per_trade', 0.05)
-                    equity_change_pct = (pnl / 100) * risk_pct
-                    equity *= (1 + equity_change_pct)
+                    # Leverage is already mathematically incorporated into `pnl`
+                    equity *= (1 + (pnl / 100))
                     trade_history.append({
                         'date': trade_date,
                         'ticker': ticker,
@@ -760,10 +770,8 @@ def run_backtest_v2(
         else:
             pnl = ((pos['entry_price'] - last_price) / pos['entry_price'] * pos.get('leverage', 1.0)) * 100
         
-        # BUG FIX: scale equity change by risk_per_trade
-        risk_pct = params.get('risk_per_trade', 0.05)
-        equity_change_pct = (pnl / 100) * risk_pct
-        equity *= (1 + equity_change_pct)
+        # Leverage is already factored into `pnl`
+        equity *= (1 + (pnl / 100))
         
         trade_history.append({
             'date': end_date,

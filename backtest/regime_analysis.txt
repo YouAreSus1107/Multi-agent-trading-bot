@@ -1,12 +1,25 @@
 ================================================================================
-REGIME MODEL HEAD-TO-HEAD: V2 (HMA) vs V3 (Multi-Factor)
+REGIME MODEL HEAD-TO-HEAD: HMA-Kahlman vs HMM (Article Method)
 ================================================================================
+
+  HMM State Diagnostics (from training on 10Y S&P index):
+  St   Days   AnnRet%    AnnVol%    AvgDD%     Label
+  ----------------------------------------------------
+  6    268    46.41      26.42      -8.73      bull
+  5    21     39.40      87.87      -27.02     bull
+  4    648    34.02      11.90      -1.00      bull
+  8    552    30.82      10.44      -0.91      bull
+  2    382    29.76      7.83       -0.43      bull
+  3    506    25.06      11.22      -0.77      bull
+  7    308    -2.85      18.11      -3.46      chop
+  0    839    -3.61      14.76      -3.55      chop
+  1    416    -25.58     22.92      -10.66     bear
 
 PERIOD: 2022-01-01 to 2023-12-31 (501 trading days)
 Buy & Hold SPY Return:   +2.07%
 
 ================================================================================
-MODEL 1: V2 HMA-KAHLMAN (Buffer=5)
+MODEL 1: HMA-KAHLMAN (Buffer=5)
 ================================================================================
 
   Breakdown by v2_regime state:
@@ -20,18 +33,17 @@ MODEL 1: V2 HMA-KAHLMAN (Buffer=5)
   Simulated Strategy (Long Only): +6.99%
 
 ================================================================================
-MODEL 2: V3 MULTI-FACTOR STATE MACHINE
-Features: Trend Alignment, Realized Volatility, Kaufman Efficiency
+MODEL 2: HMM (Article Method) — PCA + BIC K-Selection + 27 Features
+Trained on 10-Year S&P 500 Equal-Weighted Index + VIX/HYG/LQD
 ================================================================================
 
-  Breakdown by v3_regime state:
+  Breakdown by hmm_regime state:
   -----------------------------------------------------------------
   State                     | Days  | 1d Acc   | 5d Acc   | Avg 5d Ret
   -----------------------------------------------------------------
-  bear_trend                | 26    |    61.5% |    76.9% |    +1.775%
-  bull_trend                | 111   |    55.9% |    63.1% |    +0.238%
-  chop                      | 192   |    47.9% |    51.0% |    -0.195%
-  high_volatility_stress    | 172   |    45.3% |    49.4% |    -0.018%
+  bear                      | 211   |    46.9% |    52.1% |    +0.078%
+  bull                      | 95    |    56.8% |    60.0% |    +0.248%
+  chop                      | 195   |    48.7% |    54.4% |    -0.041%
 
-  Total Transitions (Flips): 26
-  Simulated Strategy (Long Only): +8.78%
+  Total Transitions (Flips): 13
+  Simulated Strategy (Long Only): +7.32%

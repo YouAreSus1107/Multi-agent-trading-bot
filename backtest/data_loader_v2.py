@@ -112,8 +112,11 @@ def parse_sp500_daily(csv_path: str = SP500_CSV, fetch_yfinance: bool = True) ->
                     ticker_data[field_type.lower()] = pd.to_numeric(
                         data_df.iloc[:, col_idx], errors='coerce'
                     )
-            
             if 'close' not in ticker_data:
+                continue
+            
+            # Skip dual-class shares that cause severe API routing bugs
+            if ticker in ["BF.B", "BF-B", "BRK.B", "BRK-B"]:
                 continue
                 
             tdf = pd.DataFrame(ticker_data)
@@ -570,7 +573,8 @@ def run_daily_selection(
     if SPY_TICKER in all_tickers:
         spy_df = all_tickers[SPY_TICKER]
         from backtest.regime_v3 import HMMRegimeModel
-        regime_df = HMMRegimeModel().compute_regime(spy_df)
+        # Train on history up to start_date, inference strictly out-of-sample thereafter.
+        regime_df = HMMRegimeModel().compute_regime(spy_df, train_end=start_date)
     else:
         regime_df = None
     
