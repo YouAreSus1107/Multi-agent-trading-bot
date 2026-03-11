@@ -36,7 +36,7 @@ INVERSE_ETFS = ['PSQ', 'SQQQ', 'QID', 'SDS', 'SPXU', 'SH', 'DOG', 'DXD', 'SDOW']
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backtest.data_loader_v2 import parse_sp500_daily, run_daily_selection, SPY_TICKER
-from backtest.indicators import compute_hma_kahlman_regime
+from backtest.regime_v3 import HMMRegimeModel
 
 # Production TA stack (exact same code as live trading)
 from utils.indicators import compute_trend_score, compute_daily_returns, compute_sharpe_ratio
@@ -164,50 +164,43 @@ def evaluate_bull_entry(quant: dict, trend_score: float, sparm: dict) -> tuple[b
 
 def evaluate_bear_entry(quant: dict, trend_score: float, sparm: dict) -> tuple[bool, str]:
     """
-    Hybrid entry logic for shorts matching the parameterized requirements:
-    - hybrid_score <= short_hybrid
-    - exec_score >= short_exec
-    - delta_ratio <= short_delta_max
-    - vwap_zscore >= short_vwap
+    Mean Reversion Short Entry Logic for Bear Regimes:
+    Target: Overextended pumps (RSI > 70, VWAP Z > 2.0) with fading momentum.
     """
     exec_score = 30
+    
+    # 1. Require extreme UPWARD extension (Mean Reversion)
     z = quant.get('vwap_zscore', 0)
-    if z < -2.5: exec_score += 20
-    elif z < -1.5: exec_score += 12
-    elif z < -0.5: exec_score += 6
-    elif z > 2.5: exec_score -= 20
-    elif z > 1.5: exec_score -= 10
-    elif z > 0.5: exec_score -= 3
+    if z > 2.5: exec_score += 20
+    elif z > 2.0: exec_score += 12
+    elif z > 1.5: exec_score += 6
+    # Penalize if it's already dumping
+    elif z < -1.0: exec_score -= 20
     
+    # 2. RSI Overbought Check
+    rsi = quant.get('rsi_14', 50)
+    if rsi > 75: exec_score += 15
+    elif rsi > 70: exec_score += 10
+    
+    # 3. Delta Ratio (Wait for buyers to exhaust)
     dr = quant.get('delta_ratio', 0.5)
-    if dr < 0.35: exec_score += 25
-    elif dr < 0.45: exec_score += 14
-    elif dr > 0.65: exec_score -= 25
-    elif dr > 0.55: exec_score -= 12
-    
-    if not quant.get('smart_bounce', True): # Weakness is good for shorts
-        exec_score += 15
+    if dr < 0.40: exec_score += 15  # Sellers taking control
+    elif dr > 0.60: exec_score -= 20 # Buyers still pushing
     
     exec_score = max(0, min(60, exec_score))
     
-    # Invert the trend score for bears: 40 - trend_score
     bear_trend = max(0.0, 40.0 - trend_score)
     hybrid_score = round(bear_trend + exec_score)
     hybrid_score = max(0, min(100, hybrid_score))
     
-    last_sell_pct = 1.0 - quant.get('last_bar_buy_pct', 0.5)
-    
     short_entry = (
-        hybrid_score >= sparm['short_hybrid'] and  # Changed to >= due to inverted trend
+        hybrid_score >= sparm['short_hybrid'] and 
         exec_score >= sparm['short_exec'] and
         dr <= sparm['short_delta_max'] and
-        z >= sparm['short_vwap']  # >= prevents shorting when price is extremely below VWAP
+        z >= sparm['short_vwap'] # Note: Optimizer should now hunt for positive values (e.g., 2.0)
     )
     
-    if sparm['short_bounce_pct'] > 0.0:
-        short_entry = short_entry and (last_sell_pct >= sparm['short_bounce_pct'])
-    
-    return short_entry, f"Score={hybrid_score} Exec={exec_score} DR={dr:.2f} Z={z:.2f}"
+    return short_entry, f"Score={hybrid_score} Exec={exec_score} DR={dr:.2f} Z={z:.2f} RSI={rsi:.1f}"
 
 
 def evaluate_inverse_etf_entry(quant: dict, trend_score: float, sparm: dict) -> tuple[bool, str]:
@@ -256,25 +249,21 @@ def evaluate_inverse_etf_entry(quant: dict, trend_score: float, sparm: dict) -> 
 # POSITION MANAGEMENT
 # ──────────────────────────────────────────────────────────────────────────────
 
-def manage_position(pos: dict, current_price: float, current_time, params: dict) -> tuple[bool, str, float]:
+def manage_position(pos: dict, current_price: float, current_time, params: dict, current_mtf_tsl: float = None) -> tuple[bool, str, float]:
     """
-    Check stop/target/trailing for a position.
+    Check stop/target/trailing for a position using dynamic MTF TSL.
     Returns: (is_closed, close_type, pnl_pct)
     """
     is_long = pos['side'] == 'long'
     entry_price = pos['entry_price']
     atr = pos['atr_5m']
-    stop_r = params.get('stop_r', 3.0)      # Updated to 3.0 ATR default
-    target_r = params.get('target_r', 3.0)  # Unchanged target for now
+    stop_r = params.get('stop_r', 3.0)      
+    target_r = params.get('target_r', 3.0)  
     leverage = pos.get('leverage', 1.0)
     
-    # Morning Time-Lock checking
-    # Between 09:30 and 10:30, trailing stops are disabled.
-    # Only a -4.0% hard circuit breaker is active.
     is_morning_lock = current_time.hour == 9 or (current_time.hour == 10 and current_time.minute <= 30)
     circuit_breaker_loss_limit = -4.0
     
-    # Calculate current open PnL
     dir_mult = 1.0 if is_long else -1.0
     open_pnl = ((current_price - entry_price) / entry_price * dir_mult) * 100 * leverage
     
@@ -284,21 +273,18 @@ def manage_position(pos: dict, current_price: float, current_time, params: dict)
         elif current_price >= pos['target'] if is_long else current_price <= pos['target']:
             return True, 'target', open_pnl
         return False, '', 0.0
-    
-    # After 10:30 AM, standard trailing logic resumes:
+
+    # --- DYNAMIC MTF TSL LOGIC ---
+    if current_mtf_tsl is not None and not np.isnan(current_mtf_tsl):
+        if is_long:
+            if current_mtf_tsl > pos['stop']:
+                pos['stop'] = current_mtf_tsl
+        else:
+            if current_mtf_tsl < pos['stop']:
+                pos['stop'] = current_mtf_tsl
+
+    # Standard Exits against the dynamic stop
     if is_long:
-        # 2R Runner
-        if current_price >= entry_price + 2.0 * stop_r * atr:
-            new_stop = current_price - stop_r * atr
-            if new_stop > pos['stop']:
-                pos['stop'] = new_stop
-                pos['target'] = float('inf')
-        # 1R Breakeven
-        elif current_price >= entry_price + stop_r * atr:
-            if pos['stop'] < entry_price:
-                pos['stop'] = entry_price
-        
-        # Check exits
         if current_price <= pos['stop']:
             pnl = ((current_price - entry_price) / entry_price * leverage) * 100
             return True, 'stop', pnl
@@ -306,25 +292,13 @@ def manage_position(pos: dict, current_price: float, current_time, params: dict)
             pnl = ((current_price - entry_price) / entry_price * leverage) * 100
             return True, 'target', pnl
     else:
-        # Short: 2R Runner
-        if current_price <= entry_price - 2.0 * stop_r * atr:
-            new_stop = current_price + stop_r * atr
-            if new_stop < pos['stop']:
-                pos['stop'] = new_stop
-                pos['target'] = -float('inf')
-        # 1R Breakeven
-        elif current_price <= entry_price - stop_r * atr:
-            if pos['stop'] > entry_price:
-                pos['stop'] = entry_price
-        
-        # Check exits
         if current_price >= pos['stop']:
             pnl = ((entry_price - current_price) / entry_price * leverage) * 100
             return True, 'stop', pnl
         elif current_price <= pos['target']:
             pnl = ((entry_price - current_price) / entry_price * leverage) * 100
             return True, 'target', pnl
-    
+            
     return False, '', 0.0
 
 
@@ -479,7 +453,12 @@ def run_backtest_v2(
                 
                 curr_price = float(bars_so_far['close'].iloc[-1])
                 
-                is_closed, close_type, pnl = manage_position(pos, curr_price, ts, params)
+                try:
+                    current_tsl = float(bars_so_far['mtf_tsl'].iloc[-1])
+                except (KeyError, IndexError):
+                    current_tsl = None
+                
+                is_closed, close_type, pnl = manage_position(pos, curr_price, ts, params, current_mtf_tsl=current_tsl)
                 
                 if is_closed:
                     side_str = pos['side'].upper()
@@ -632,24 +611,42 @@ def run_backtest_v2(
                 # Volatility-Parity sizing + Margin Cap logic
                 stop_r_val = params.get('stop_r', 3.0)
                 target_r_val = params.get('target_r', 3.0)
-                stop_dist = stop_r_val * atr
                 
-                # 1 ATR = 1% of Equity
-                risk_dollars = equity * 0.01
-                ideal_qty = risk_dollars / atr if atr > 0 else 1
+                # ---------------------------------------------------------
+                # DYNAMIC HALF-KELLY CRITERION SIZING
+                # ---------------------------------------------------------
+                stop_dist = stop_r_val * atr  # Assumes 'atr' is calculated from the current 5m bar
+
+                kelly_fraction = 0.01 # Default to 1% risk while warming up
+
+                if len(trade_history) >= 15:
+                    recent_trades = trade_history[-50:]
+                    wins = [t.get('pnl_pct', t.get('pnl', 0)) for t in recent_trades if t.get('pnl_pct', t.get('pnl', 0)) > 0]
+                    losses = [abs(t.get('pnl_pct', t.get('pnl', 0))) for t in recent_trades if t.get('pnl_pct', t.get('pnl', 0)) <= 0]
+                    
+                    W = len(wins) / len(recent_trades)
+                    avg_win = sum(wins) / len(wins) if wins else 0.01
+                    avg_loss = sum(losses) / len(losses) if losses else 0.01
+                    R = avg_win / avg_loss
+                    
+                    full_kelly = W - ((1 - W) / R)
+                    full_kelly = max(0.005, full_kelly) # Floor at 0.5%
+                    
+                    kelly_fraction = full_kelly / 2.0 # Standard Half-Kelly
+                    kelly_fraction = min(kelly_fraction, 0.04) # Hard cap at 4% risk per trade
+
+                risk_dollars = equity * kelly_fraction
+
+                # Convert Risk to Position Size
+                ideal_qty = risk_dollars / stop_dist if stop_dist > 0 else 1
                 ideal_position_dollars = ideal_qty * entry_price
-                
-                # Hard Cap: Max 2.0x leverage per trade
-                ideal_position_dollars = min(ideal_position_dollars, equity * 2.0)
-                
-                # Check Time-based Margin Limits
+
+                # Apply Time-Based Margin Caps (Portfolio Defense)
                 current_deployed = sum(p['position_dollars'] for p in positions)
                 is_morning = (ts.hour < 11)
-                
-                # Total margin limit: 4x equity. Before 11 AM, cap at 2x equity total deployed.
                 total_margin_limit = equity * 2.0 if is_morning else equity * 4.0
                 available_margin = total_margin_limit - current_deployed
-                
+
                 if available_margin < 100:
                     log(f"  [{day_str}] {side.upper()} {ticker} REJECTED | Reason: Margined Out (MorningCap={is_morning})")
                     continue

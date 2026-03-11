@@ -551,7 +551,7 @@ def run_daily_selection(
             intraday_data: {ticker: DataFrame} (if fetch_5m=True)
         }, ...]
     """
-    from backtest.indicators import compute_hma_kahlman_regime
+    from backtest.regime_v3 import HMMRegimeModel
     
     global _DAILY_SELECTION_CACHE
     cache_key = (start_date, end_date, warmup_days, top_n, fetch_5m)
@@ -568,8 +568,9 @@ def run_daily_selection(
     
     # Compute market regime for the entire period using SPY
     if SPY_TICKER in all_tickers:
-        spy_closes = all_tickers[SPY_TICKER]['close']
-        regime_df = compute_hma_kahlman_regime(spy_closes, hk_length=14, kalman_gain=0.7, buffer_days=5)
+        spy_df = all_tickers[SPY_TICKER]
+        from backtest.regime_v3 import HMMRegimeModel
+        regime_df = HMMRegimeModel().compute_regime(spy_df)
     else:
         regime_df = None
     

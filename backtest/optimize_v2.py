@@ -130,20 +130,25 @@ def compute_composite_score(results: list[dict]) -> float:
         pnl = r.get("avg_pnl", 0.0)
         trades = r.get("total_trades", 0)
 
+        # Cap PF to prevent inf from blowing up the score (0 losses = inf PF)
+        pf_capped = 5.0 if pf == float('inf') else min(pf, 5.0)
+
         # Base score
         dd_component = 1.0 / max(dd, 1.0)
-        score = (pf * 0.40) + (wr * 0.30) + (dd_component * 0.15) + (pnl * 0.15)
+        score = (pf_capped * 0.40) + (wr * 0.30) + (dd_component * 0.15) + (pnl * 0.15)
 
-        # Hard penalties
-        if trades < 4:                  score *= 0.4
+        # Hard penalties per period
+        if trades < 10:                 score *= 0.2  # Severe penalty for tiny sample size
+        elif trades < 25:               score *= 0.5  # Heavy penalty for low trades
+        
         if dd > 35.0:                   score *= 0.2
         if pf < 0.8:                    score *= 0.3
 
         period_scores.append(score)
 
-    # Global check: too few total trades across all periods combined
-    if total_trades_all < 12:
-        factor = max(0.1, total_trades_all / 12.0)
+    # Global check: we want at least 90 trades across all 3 periods combined for statistical significance
+    if total_trades_all < 90:
+        factor = max(0.01, (total_trades_all / 90.0) ** 2) # Quadratic penalty to aggressively push trades up
         period_scores = [s * factor for s in period_scores]
 
     # Return the minimum period score to force cross-regime robustness

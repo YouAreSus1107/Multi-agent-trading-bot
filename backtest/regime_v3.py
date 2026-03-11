@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+import warnings
+from hmmlearn.hmm import GaussianHMM
 
 class MultiFactorRegimeModel:
     """
@@ -222,3 +224,34 @@ class MultiFactorRegimeModel:
         featured_df['regime'] = smoothed_regimes
         
         return featured_df
+
+class HMMRegimeModel:
+    """Unsupervised Machine Learning for Bull/Bear Regime Detection"""
+    def __init__(self, n_regimes=2):
+        self.n_regimes = n_regimes
+
+    def compute_regime(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+        df['returns'] = df['close'].pct_change()
+        df['volatility'] = (df['high'] - df['low']) / df['close']
+        
+        train_df = df[['returns', 'volatility']].dropna()
+        X = np.column_stack([train_df['returns'], train_df['volatility']])
+        
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            model = GaussianHMM(n_components=self.n_regimes, covariance_type="full", n_iter=1000, random_state=42)
+            model.fit(X)
+            hidden_states = model.predict(X)
+            
+        # Dynamically identify Bear state (always the state with higher variance)
+        state_variances = np.diag(model.covars_[:, 1, 1]) 
+        bear_state = 0 if state_variances[0] > state_variances[1] else 1
+        bull_state = 1 if bear_state == 0 else 0
+            
+        state_map = {bull_state: 'bull', bear_state: 'bear'}
+        df['regime'] = 'neutral'
+        df.loc[train_df.index, 'regime'] = [state_map[state] for state in hidden_states]
+        df['regime'] = df['regime'].replace('neutral', method='bfill')
+        
+        return df[['close', 'regime']]
