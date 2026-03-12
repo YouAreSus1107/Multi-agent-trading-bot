@@ -477,9 +477,11 @@ def run_backtest_v2(
                     if close_type == 'stop':
                         daily_stopped_tickers.add(pos['ticker'])
                     
-                    # Leverage is mathematically pre-calculated into `pnl` by manage_position.
-                    # This means `pnl` represents the exact % change on the total account balance.
-                    equity *= (1 + pnl / 100.0)
+                    # Convert the account-relative % PnL into raw dollars using the entry equity.
+                    # This prevents double-compounding math errors on overlapping concurrent trades.
+                    entry_equity = pos['position_dollars'] / pos.get('leverage', 1.0)
+                    profit_dollars = (pnl / 100.0) * entry_equity
+                    equity += profit_dollars
 
                     trade_history.append({
                         'date': trade_date,
@@ -571,7 +573,7 @@ def run_backtest_v2(
                     side = 'long'
                 elif effective_regime in ['bear', 'chop']:
                     if is_inverse_etf:
-                        entered, reason = evaluate_inverse_etf_entry(quant, trend_score, sparm)
+                        entered, reason = evaluate_bull_entry(quant, trend_score, sparm)
                         side = 'long'
                     else:
                         entered, reason = evaluate_bear_entry(quant, trend_score, sparm)
@@ -608,13 +610,6 @@ def run_backtest_v2(
                 atr = sig['atr']
                 reason = sig['reason']
                 
-                # Verify Sector Cap
-                ticker_sector = SP500_SECTORS.get(ticker, "Unknown")
-                active_sectors = [SP500_SECTORS.get(p['ticker'], "Unknown") for p in positions]
-                if ticker_sector in active_sectors and ticker_sector != "Unknown" and ticker not in INVERSE_ETFS:
-                    log(f"  [{day_str}] {side.upper()} {ticker} REJECTED | Reason: Sector Cap ({ticker_sector})")
-                    continue
-                    
                 # Volatility-Parity sizing + Margin Cap logic
                 stop_r_val = params.get('stop_r', 3.0)
                 target_r_val = params.get('target_r', 3.0)
@@ -651,8 +646,8 @@ def run_backtest_v2(
                 else:
                     ideal_position_dollars = equity * 0.2  # Fallback
                     
-                # Hard Cap: Never put more than 50% of nominal equity into a single position
-                max_single_position = equity * 0.5
+                # Hard Cap: Avoid placing more than 100% of nominal equity into a single position
+                max_single_position = equity * 1.0
                 ideal_position_dollars = min(ideal_position_dollars, max_single_position)
 
                 # Apply Time-Based Margin Caps (Portfolio Defense)
@@ -694,64 +689,7 @@ def run_backtest_v2(
                 log(f"  [{day_str}] {side.upper()} {ticker} @ {entry_price:.2f} | {reason} | Size: ${position_dollars:,.0f} | Lev: {effective_leverage:.1f}x | Regime: {regime.upper()}")
         
         # End of day: Check if we need to force close (intraday mode) OR increment hold days
-        last_ts = execution_times[-1] if execution_times else None
-        
-        for pos in list(positions):
-            ticker = pos['ticker']
-            
-            pnl_computed = False
-            last_price = pos['entry_price']
-            
-            if ticker in intraday_data and intraday_data[ticker] is not None and len(intraday_data[ticker]) > 0:
-                last_price = float(intraday_data[ticker]['close'].loc[:last_ts].iloc[-1]) if last_ts else float(intraday_data[ticker]['close'].iloc[-1])
-            
-            is_long = pos['side'] == 'long'
-            
-            if params.get('max_hold_days', 0) == 0:
-                # Force close End of Day (Intraday Mode)
-                if is_long:
-                    pnl = ((last_price - pos['entry_price']) / pos['entry_price'] * pos.get('leverage', 1.0)) * 100
-                else:
-                    pnl = ((pos['entry_price'] - last_price) / pos['entry_price'] * pos.get('leverage', 1.0)) * 100
-                
-                # Leverage is already mathematically incorporated into `pnl`
-                equity *= (1 + (pnl / 100))
-                trade_history.append({
-                    'date': trade_date,
-                    'ticker': ticker,
-                    'side': pos['side'],
-                    'entry_price': pos['entry_price'],
-                    'exit_price': last_price,
-                    'pnl': pnl,
-                    'type': 'eod_close',
-                    'regime': pos['regime']
-                })
-                log(f"  [{day_str}] EOD CLOSE {ticker} ({pos['side'].upper()}) @ {last_price:.2f} | PnL: {pnl:+.2f}%")
-                positions.remove(pos)
-            else:
-                # Multi-day hold mode
-                pos['days_held'] += 1
-                if pos['days_held'] >= params.get('max_hold_days', 5):
-                    if is_long:
-                        pnl = ((last_price - pos['entry_price']) / pos['entry_price'] * pos.get('leverage', 1.0)) * 100
-                    else:
-                        pnl = ((pos['entry_price'] - last_price) / pos['entry_price'] * pos.get('leverage', 1.0)) * 100
-                    
-                    # Leverage is already mathematically incorporated into `pnl`
-                    equity *= (1 + (pnl / 100))
-                    trade_history.append({
-                        'date': trade_date,
-                        'ticker': ticker,
-                        'side': pos['side'],
-                        'entry_price': pos['entry_price'],
-                        'exit_price': last_price,
-                        'pnl': pnl,
-                        'type': 'time_stop',
-                        'regime': pos['regime']
-                    })
-                    log(f"  [{day_str}] TIME STOP {ticker} ({pos['side'].upper()}) @ {last_price:.2f} | PnL: {pnl:+.2f}%")
-                    positions.remove(pos)
-        
+        # (Intraday forced EOD close logic removed per user request. Positions hold indefinitely until stops/targets hit)
         equity_curve.append({'date': trade_date, 'equity': equity})
         
     # After simulation loop, close any lingering positions
@@ -770,8 +708,11 @@ def run_backtest_v2(
         else:
             pnl = ((pos['entry_price'] - last_price) / pos['entry_price'] * pos.get('leverage', 1.0)) * 100
         
-        # Leverage is already factored into `pnl`
-        equity *= (1 + (pnl / 100))
+        # Convert the account-relative % PnL into raw dollars using the entry equity.
+        # This prevents double-compounding math errors on overlapping concurrent trades.
+        entry_equity = pos['position_dollars'] / pos.get('leverage', 1.0)
+        profit_dollars = (pnl / 100.0) * entry_equity
+        equity += profit_dollars
         
         trade_history.append({
             'date': end_date,

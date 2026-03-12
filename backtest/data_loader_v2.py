@@ -211,7 +211,7 @@ def supplement_etf_data(
         for sym in missing:
             try:
                 ticker_obj = yf.Ticker(sym)
-                hist = ticker_obj.history(start=start_date, end=end_date, auto_adjust=True)
+                hist = ticker_obj.history(start=start_date, end=end_date, auto_adjust=False)
                 
                 if hist.empty:
                     continue
