@@ -211,7 +211,8 @@ def supplement_etf_data(
         for sym in missing:
             try:
                 ticker_obj = yf.Ticker(sym)
-                hist = ticker_obj.history(start=start_date, end=end_date, auto_adjust=False)
+                need_adjust = sym not in INVERSE_ETFS
+                hist = ticker_obj.history(start=start_date, end=end_date, auto_adjust=need_adjust)
                 
                 if hist.empty:
                     continue

@@ -162,62 +162,20 @@ def evaluate_bull_entry(quant: dict, trend_score: float, sparm: dict) -> tuple[b
     return entry, f"Score={hybrid_score} Exec={exec_score} DR={dr:.2f} Z={z:.2f}"
 
 
-def evaluate_bear_entry(quant: dict, trend_score: float, sparm: dict) -> tuple[bool, str]:
+def evaluate_dip_buy_entry(quant: dict, trend_score: float, sparm: dict) -> tuple[bool, str]:
     """
-    Mean Reversion Short Entry Logic for Bear Regimes:
-    Target: Overextended pumps (RSI > 70, VWAP Z > 2.0) with fading momentum.
-    """
-    exec_score = 30
-    
-    # 1. Require extreme UPWARD extension (Mean Reversion)
-    z = quant.get('vwap_zscore', 0)
-    if z > 2.5: exec_score += 20
-    elif z > 2.0: exec_score += 12
-    elif z > 1.5: exec_score += 6
-    # Penalize if it's already dumping
-    elif z < -1.0: exec_score -= 20
-    
-    # 2. RSI Overbought Check
-    rsi = quant.get('rsi_14', 50)
-    if rsi > 75: exec_score += 15
-    elif rsi > 70: exec_score += 10
-    
-    # 3. Delta Ratio (Wait for buyers to exhaust)
-    dr = quant.get('delta_ratio', 0.5)
-    if dr < 0.40: exec_score += 15  # Sellers taking control
-    elif dr > 0.60: exec_score -= 20 # Buyers still pushing
-    
-    exec_score = max(0, min(60, exec_score))
-    
-    bear_trend = max(0.0, 40.0 - trend_score)
-    hybrid_score = round(bear_trend + exec_score)
-    hybrid_score = max(0, min(100, hybrid_score))
-    
-    short_vwap_thresh = abs(sparm['short_vwap'])
-    
-    short_entry = (
-        hybrid_score >= sparm['short_hybrid'] and 
-        exec_score >= sparm['short_exec'] and
-        dr <= sparm['short_delta_max'] and
-        z >= short_vwap_thresh 
-    )
-    
-    return short_entry, f"Score={hybrid_score} Exec={exec_score} DR={dr:.2f} Z={z:.2f} RSI={rsi:.1f}"
-
-
-def evaluate_inverse_etf_entry(quant: dict, trend_score: float, sparm: dict) -> tuple[bool, str]:
-    """
-    Mean Reversion Long entry on inverse ETFs during bear regime.
-    Inverse ETFs drop when the market pumps. So we want to buy them when they are heavily oversold.
+    Mean Reversion Long entry (buy the dip) on standard stocks during bear/chop regimes.
+    We want to buy when they are heavily oversold and selling pressure is exhausted.
+    Utilizes the symmetric 'short_' parameter bounds to hunt absolute market bottoms.
     """
     exec_score = 30
     
-    # 1. Require extreme DOWNWARD extension on the Inverse ETF
+    # 1. Require extreme DOWNWARD extension (Oversold Dip)
     z = quant.get('vwap_zscore', 0)
     if z < -2.5: exec_score += 20
     elif z < -2.0: exec_score += 12
     elif z < -1.5: exec_score += 6
-    # Penalize if it's already pumping
+    # Penalize if it's already pumping too much before entry
     elif z > 1.0: exec_score -= 20
     
     # 2. RSI Oversold Check
@@ -225,20 +183,20 @@ def evaluate_inverse_etf_entry(quant: dict, trend_score: float, sparm: dict) -> 
     if rsi < 25: exec_score += 15
     elif rsi < 30: exec_score += 10
     
-    # 3. Delta Ratio (Wait for buyers to arrive on the ETF)
+    # 3. Delta Ratio (Wait for intense selling pressure to climax)
     dr = quant.get('delta_ratio', 0.5)
-    if dr > 0.60: exec_score += 15
-    elif dr > 0.55: exec_score += 10
-    elif dr < 0.40: exec_score -= 20
+    if dr < 0.35: exec_score += 15
+    elif dr < 0.45: exec_score += 10
+    elif dr > 0.60: exec_score -= 20
     
     exec_score = max(0, min(60, exec_score))
     
-    # Invert the trend score for inverse ETFs (they are bearish derivatives)
+    # Severe systemic drawdowns yield low trend scores, so invert to reward crashing stocks
     bear_trend = max(0.0, 40.0 - trend_score)
     hybrid_score = round(bear_trend + exec_score)
     hybrid_score = max(0, min(100, hybrid_score))
     
-    # Relaxed thresholds for inverse ETF longs compared to regular bearish entries
+    # Relax thresholds slightly so Optuna doesn't choke out all trades
     min_hybrid = max(45, sparm['short_hybrid'] - 12)  
     min_exec = max(30, sparm['short_exec'] - 10)
     
@@ -572,12 +530,14 @@ def run_backtest_v2(
                     entered, reason = evaluate_bull_entry(quant, trend_score, sparm)
                     side = 'long'
                 elif effective_regime in ['bear', 'chop']:
+                    # Inverse ETFs capture massive momentum to the upside during crashes
                     if is_inverse_etf:
                         entered, reason = evaluate_bull_entry(quant, trend_score, sparm)
                         side = 'long'
+                    # Standard stocks are purchased at severe, panicked discounts (buying the dip)
                     else:
-                        entered, reason = evaluate_bear_entry(quant, trend_score, sparm)
-                        side = 'short'
+                        entered, reason = evaluate_dip_buy_entry(quant, trend_score, sparm)
+                        side = 'long'
 
                 if entered:
                     # Parse out hybrid score from reason string
