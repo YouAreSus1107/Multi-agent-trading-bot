@@ -575,29 +575,22 @@ def run_backtest_v2(
                 target_r_val = params.get('target_r', 3.0)
                 
                 # ---------------------------------------------------------
-                # DYNAMIC HALF-KELLY CRITERION SIZING
+                # DYNAMIC VOLATILITY PARITY SIZING
                 # ---------------------------------------------------------
                 stop_dist = stop_r_val * atr  # Assumes 'atr' is calculated from the current 5m bar
 
-                kelly_fraction = 0.01 # Default to 1% risk while warming up
-
-                if len(trade_history) >= 15:
-                    recent_trades = trade_history[-50:]
-                    wins = [t.get('pnl_pct', t.get('pnl', 0)) for t in recent_trades if t.get('pnl_pct', t.get('pnl', 0)) > 0]
-                    losses = [abs(t.get('pnl_pct', t.get('pnl', 0))) for t in recent_trades if t.get('pnl_pct', t.get('pnl', 0)) <= 0]
-                    
-                    W = len(wins) / len(recent_trades)
-                    avg_win = sum(wins) / len(wins) if wins else 0.01
-                    avg_loss = sum(losses) / len(losses) if losses else 0.01
-                    R = avg_win / avg_loss
-                    
-                    full_kelly = W - ((1 - W) / R)
-                    full_kelly = max(0.005, full_kelly) # Floor at 0.5%
-                    
-                    kelly_fraction = full_kelly / 2.0 # Standard Half-Kelly
-                    kelly_fraction = min(kelly_fraction, 0.04) # Hard cap at 4% risk per trade
-
-                risk_dollars = equity * kelly_fraction
+                base_risk_fraction = params.get('risk_per_trade', 0.05)
+                
+                # Conviction Scaling: h_score mapped from (30 -> 0.5) to (70 -> 1.0)
+                h_score = sig.get('h_score', 50)
+                conviction_multiplier = ((h_score - 30) / (70 - 30)) * (1.0 - 0.5) + 0.5
+                conviction_multiplier = max(0.5, min(1.5, conviction_multiplier))
+                
+                # Regime Scaling (default 1.0 for now)
+                regime_multiplier = 1.0
+                
+                dynamic_risk_fraction = base_risk_fraction * conviction_multiplier * regime_multiplier
+                risk_dollars = equity * dynamic_risk_fraction
 
                 # Convert Risk to Position Size correctly using Volatility Parity
                 stop_pct = stop_dist / entry_price
@@ -606,8 +599,8 @@ def run_backtest_v2(
                 else:
                     ideal_position_dollars = equity * 0.2  # Fallback
                     
-                # Hard Cap: Avoid placing more than 100% of nominal equity into a single position
-                max_single_position = equity * 1.0
+                # Hard Cap: Position Concentration Cap (30% max per position)
+                max_single_position = equity * 0.30
                 ideal_position_dollars = min(ideal_position_dollars, max_single_position)
 
                 # Apply Time-Based Margin Caps (Portfolio Defense)
@@ -796,7 +789,7 @@ if __name__ == "__main__":
     custom_params = {
         'stop_r': sparm['stop_r'],
         'target_r': sparm['target_r'],
-        'risk_per_trade': 0.05,
+        'risk_per_trade': sparm.get('risk_per_trade', 0.05),
         'max_positions': 5,
         'max_hold_days': 0,
     }
