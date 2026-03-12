@@ -247,7 +247,7 @@ def evaluate_inverse_etf_entry(quant: dict, trend_score: float, sparm: dict) -> 
     entry = (
         hybrid_score >= min_hybrid and 
         exec_score >= min_exec and 
-        dr >= sparm['long_delta_min'] and 
+        dr <= sparm['short_delta_max'] and 
         z <= -short_vwap_thresh
     )
     

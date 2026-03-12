@@ -90,7 +90,7 @@ WARM_START_SEEDS = [
 # ── CSV Header ───────────────────────────────────────────────────────────────
 CSV_HEADER = [
     "timestamp", "trial_number", "composite_score",
-    "avg_profit_factor", "avg_win_rate", "avg_drawdown", "avg_pnl", "total_trades",
+    "avg_profit_factor", "avg_win_rate", "avg_drawdown", "avg_pnl", "avg_total_return", "total_trades",
     "min_period_score",
     "long_hybrid", "long_exec", "long_vwap",
     "short_hybrid", "short_exec", "short_vwap",
@@ -137,11 +137,11 @@ def compute_composite_score(results: list[dict]) -> float:
         dd_component = 1.0 / max(dd, 1.0)
         score = (pf_capped * 0.40) + (wr * 0.30) + (dd_component * 0.15) + (pnl * 0.15)
 
-        # Hard penalties per period
-        if trades < 10:                 score *= 0.2  # Severe penalty for tiny sample size
-        elif trades < 25:               score *= 0.5  # Heavy penalty for low trades
+        # Softened penalties per period allowing more exploration
+        if trades < 5:                  score *= 0.1  # Severe penalty for micro sample size
+        elif trades < 15:               score *= 0.5  # Heavy penalty for low trades
         
-        if dd > 35.0:                   score *= 0.2
+        if dd > 40.0:                   score *= 0.2
         if pf < 0.8:                    score *= 0.3
 
         period_scores.append(score)
@@ -191,6 +191,7 @@ def run_trial_across_periods(sparm: dict, verbose: bool = False) -> tuple[float,
             "profit_factor":  result.get("profit_factor", 0.0),
             "max_drawdown":   abs(result.get("max_drawdown", 100.0)),
             "final_equity":   result.get("final_equity", 10000.0),
+            "total_return":   result.get("total_return", 0.0),
         })
 
     composite = compute_composite_score(all_results)
@@ -204,14 +205,14 @@ def objective(trial: optuna.Trial) -> float:
     # Long (Bull) side
     long_hybrid   = trial.suggest_float("long_hybrid",   55.0, 80.0, step=1.0)
     long_exec     = trial.suggest_float("long_exec",     30.0, 55.0, step=1.0)
-    long_vwap     = trial.suggest_float("long_vwap",      0.0,  4.0, step=0.5)
-    long_delta    = trial.suggest_float("long_delta_min", 0.50, 0.75, step=0.01)
+    long_vwap     = trial.suggest_float("long_vwap",     -2.0,  5.0, step=0.5)
+    long_delta    = trial.suggest_float("long_delta_min", 0.45, 0.75, step=0.01)
 
     # Short (Bear) side  — symmetric structure
-    short_hybrid  = trial.suggest_float("short_hybrid",  55.0, 80.0, step=1.0)
-    short_exec    = trial.suggest_float("short_exec",    30.0, 55.0, step=1.0)
-    short_vwap    = trial.suggest_float("short_vwap",   -4.0,  0.0,  step=0.5)
-    short_delta   = trial.suggest_float("short_delta_max", 0.25, 0.50, step=0.01)
+    short_hybrid  = trial.suggest_float("short_hybrid",  50.0, 80.0, step=1.0)
+    short_exec    = trial.suggest_float("short_exec",    25.0, 55.0, step=1.0)
+    short_vwap    = trial.suggest_float("short_vwap",   -5.0,  2.0,  step=0.5)
+    short_delta   = trial.suggest_float("short_delta_max", 0.25, 0.55, step=0.01)
 
     # Risk / exit
     stop_r        = trial.suggest_float("stop_r",   1.5, 4.0, step=0.5)
@@ -258,6 +259,7 @@ def write_csv_row(trial: optuna.Trial, score: float, period_results: list[dict])
         "wr":     sum(r["win_rate"] for r in period_results)      / max(len(period_results), 1),
         "dd":     sum(r["max_drawdown"] for r in period_results)  / max(len(period_results), 1),
         "pnl":    sum(r["avg_pnl"] for r in period_results)       / max(len(period_results), 1),
+        "ret":    sum(r.get("total_return", 0.0) for r in period_results) / max(len(period_results), 1),
     }
 
     row = [
@@ -268,6 +270,7 @@ def write_csv_row(trial: optuna.Trial, score: float, period_results: list[dict])
         round(totals["wr"], 2),
         round(totals["dd"], 2),
         round(totals["pnl"], 4),
+        round(totals["ret"], 3),
         totals["trades"],
         round(score, 4),
         sparm.get("long_hybrid"),  sparm.get("long_exec"),  sparm.get("long_vwap"),
