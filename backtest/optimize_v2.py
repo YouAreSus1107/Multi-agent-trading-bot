@@ -45,7 +45,7 @@ optuna.logging.set_verbosity(optuna.logging.WARNING)
 # ── Config ───────────────────────────────────────────────────────────────────
 STUDY_DB   = os.path.join(THIS_DIR, "optimize_v2_study.db")
 RESULTS_CSV = os.path.join(THIS_DIR, "v2_optimization_results.csv")
-BEST_PARAMS_OUT = os.path.join(THIS_DIR, "test_params_optimized.txt")
+BEST_PARAMS_OUT = os.path.join(THIS_DIR, "test_params.txt")
 
 # ── Multi-period evaluation windows ──────────────────────────────────────────
 # Strategies must perform well across ALL regimes to score high.
@@ -63,6 +63,7 @@ WARM_START_SEEDS = [
         "short_hybrid": 65.0, "short_exec": 40.0, "short_vwap": -2.5,
         "long_delta_min": 0.60, "short_delta_max": 0.40,
         "stop_r": 3.0, "target_r": 3.5,
+        "risk_per_trade": 0.05,
     },
     # Original baseline (test_params.txt values)
     {
@@ -70,6 +71,7 @@ WARM_START_SEEDS = [
         "short_hybrid": 60.0, "short_exec": 39.0, "short_vwap": -2.5,
         "long_delta_min": 0.55, "short_delta_max": 0.43,
         "stop_r": 2.0, "target_r": 3.5,
+        "risk_per_trade": 0.05,
     },
     # Tighter delta, bigger stops — high conviction only
     {
@@ -77,6 +79,7 @@ WARM_START_SEEDS = [
         "short_hybrid": 70.0, "short_exec": 45.0, "short_vwap": -2.0,
         "long_delta_min": 0.65, "short_delta_max": 0.35,
         "stop_r": 3.5, "target_r": 4.0,
+        "risk_per_trade": 0.05,
     },
     # Looser entry, tighter stop — breadth play
     {
@@ -84,6 +87,7 @@ WARM_START_SEEDS = [
         "short_hybrid": 60.0, "short_exec": 36.0, "short_vwap": -3.0,
         "long_delta_min": 0.55, "short_delta_max": 0.45,
         "stop_r": 2.5, "target_r": 3.0,
+        "risk_per_trade": 0.05,
     },
 ]
 
@@ -91,11 +95,10 @@ WARM_START_SEEDS = [
 CSV_HEADER = [
     "timestamp", "trial_number", "composite_score",
     "avg_profit_factor", "avg_win_rate", "avg_drawdown", "avg_pnl", "avg_total_return", "total_trades",
-    "min_period_score",
     "long_hybrid", "long_exec", "long_vwap",
     "short_hybrid", "short_exec", "short_vwap",
     "long_delta_min", "short_delta_max",
-    "stop_r", "target_r",
+    "stop_r", "target_r", "risk_per_trade"
 ]
 
 
@@ -217,6 +220,7 @@ def objective(trial: optuna.Trial) -> float:
     # Risk / exit
     stop_r        = trial.suggest_float("stop_r",   1.5, 4.0, step=0.5)
     target_r      = trial.suggest_float("target_r", 2.0, 5.0, step=0.5)
+    risk_per_trade = trial.suggest_float("risk_per_trade", 0.02, 0.08, step=0.01)
 
     # Ensure target always larger than stop
     if target_r <= stop_r:
@@ -235,6 +239,7 @@ def objective(trial: optuna.Trial) -> float:
         "short_bounce_pct": 0.0,
         "stop_r":          stop_r,
         "target_r":        target_r,
+        "risk_per_trade":  risk_per_trade,
     }
 
     score, period_results = run_trial_across_periods(sparm)
@@ -272,11 +277,10 @@ def write_csv_row(trial: optuna.Trial, score: float, period_results: list[dict])
         round(totals["pnl"], 4),
         round(totals["ret"], 3),
         totals["trades"],
-        round(score, 4),
         sparm.get("long_hybrid"),  sparm.get("long_exec"),  sparm.get("long_vwap"),
         sparm.get("short_hybrid"), sparm.get("short_exec"), sparm.get("short_vwap"),
         sparm.get("long_delta_min"), sparm.get("short_delta_max"),
-        sparm.get("stop_r"), sparm.get("target_r"),
+        sparm.get("stop_r"), sparm.get("target_r"), sparm.get("risk_per_trade")
     ]
 
     with open(RESULTS_CSV, mode="a", newline="", encoding="utf-8") as f:
@@ -314,16 +318,16 @@ def print_leaderboard(study: optuna.Study, top_n: int = 10) -> None:
 
 
 def export_best_params(study: optuna.Study) -> None:
-    """Write the best trial's params to test_params_optimized.txt."""
+    """Write the best trial's params to test_params.txt."""
     best = study.best_trial
     p = best.params
-    header = "long_hybrid,long_exec,long_vwap,short_hybrid,short_exec,short_vwap,long_delta_min,short_delta_max,long_bounce_pct,short_bounce_pct,stop_r,target_r"
+    header = "long_hybrid,long_exec,long_vwap,short_hybrid,short_exec,short_vwap,long_delta_min,short_delta_max,long_bounce_pct,short_bounce_pct,stop_r,target_r,risk_per_trade"
     values = (
-        f"Input: {p['long_hybrid']},{p['long_exec']},{p['long_vwap']},"
-        f"{p['short_hybrid']},{p['short_exec']},{p['short_vwap']},"
-        f"{p['long_delta_min']},{p['short_delta_max']},"
+        f"Input: {p['long_hybrid']:.1f},{p['long_exec']:.1f},{p['long_vwap']:.1f},"
+        f"{p['short_hybrid']:.1f},{p['short_exec']:.1f},{p['short_vwap']:.1f},"
+        f"{p['long_delta_min']:.2f},{p['short_delta_max']:.2f},"
         f"0.0,0.0,"
-        f"{p['stop_r']},{p['target_r']}"
+        f"{p['stop_r']:.1f},{p['target_r']:.1f},{p['risk_per_trade']:.2f}"
     )
     with open(BEST_PARAMS_OUT, "w", encoding="utf-8") as f:
         f.write(header + "\n")

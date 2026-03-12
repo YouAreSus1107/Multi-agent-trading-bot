@@ -1,0 +1,1 @@
+timestamp,trial_number,composite_score,avg_profit_factor,avg_win_rate,avg_drawdown,avg_pnl,avg_total_return,total_trades,long_hybrid,long_exec,long_vwap,short_hybrid,short_exec,short_vwap,long_delta_min,short_delta_max,stop_r,target_r,risk_per_trade
