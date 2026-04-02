@@ -17,12 +17,12 @@
   --red:      #ef233c;
   --orange:   #fb8500;
   --text:     #ccd6f6;
-  --muted:    #4a6885;
+  --muted:    #7a9dbf;
   --input-bg: #080f1d;
   --hover:    #152035;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: var(--bg); color: var(--text); font-family: 'Courier New', monospace; min-height: 100vh; }
+body { background: var(--bg); color: var(--text); font-family: 'Courier New', monospace; font-size: 15px; min-height: 100vh; }
 
 /* ─── HEADER ─────────────────────────────────────────────── */
 .header {
@@ -31,10 +31,10 @@ body { background: var(--bg); color: var(--text); font-family: 'Courier New', mo
   padding: 14px 32px;
   display: flex; align-items: center; gap: 14px;
 }
-.header-logo { font-size: 22px; font-weight: bold; color: var(--accent); letter-spacing: 6px; }
-.header-sub  { font-size: 10px; color: var(--muted); letter-spacing: 3px; }
+.header-logo { font-size: 26px; font-weight: bold; color: var(--accent); letter-spacing: 6px; }
+.header-sub  { font-size: 13px; color: var(--muted); letter-spacing: 3px; }
 .header-right { margin-left: auto; display: flex; align-items: center; gap: 18px; }
-.live-indicator { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+.live-indicator { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
 .dot.on  { background: var(--green); box-shadow: 0 0 6px var(--green); animation: blink 2s infinite; }
 .dot.off { background: var(--red); }
@@ -46,7 +46,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Courier New', mo
   border-bottom: 1px solid var(--border); padding: 0 32px; gap: 0;
 }
 .tab {
-  padding: 13px 22px; cursor: pointer; font-size: 11px; letter-spacing: 2px;
+  padding: 14px 24px; cursor: pointer; font-size: 13px; letter-spacing: 2px;
   color: var(--muted); border-bottom: 2px solid transparent;
   transition: all .15s; user-select: none; text-transform: uppercase;
 }
@@ -64,7 +64,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Courier New', mo
   border-radius: 4px; padding: 20px; margin-bottom: 18px;
 }
 .card-title {
-  font-size: 10px; letter-spacing: 3px; color: var(--accent);
+  font-size: 13px; letter-spacing: 3px; color: var(--accent);
   text-transform: uppercase; margin-bottom: 16px;
   padding-bottom: 8px; border-bottom: 1px solid var(--border);
 }
@@ -75,7 +75,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Courier New', mo
 /* ─── FORM ELEMENTS ──────────────────────────────────────── */
 .field { margin-bottom: 12px; }
 .field label {
-  display: block; font-size: 10px; letter-spacing: 1px;
+  display: block; font-size: 12px; letter-spacing: 1px;
   color: var(--muted); margin-bottom: 5px; text-transform: uppercase;
 }
 .field input[type=text],
@@ -84,40 +84,40 @@ body { background: var(--bg); color: var(--text); font-family: 'Courier New', mo
 .field select {
   width: 100%; background: var(--input-bg); border: 1px solid var(--border);
   color: var(--text); padding: 7px 10px; font-family: 'Courier New', monospace;
-  font-size: 13px; border-radius: 2px; outline: none; transition: border-color .15s;
+  font-size: 15px; border-radius: 2px; outline: none; transition: border-color .15s;
 }
 .field input:focus, .field select:focus { border-color: var(--accent); }
-.field .hint { font-size: 10px; color: var(--muted); margin-top: 3px; }
+.field .hint { font-size: 12px; color: var(--muted); margin-top: 3px; }
 
 /* ─── CHECKBOXES ─────────────────────────────────────────── */
 .checks { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 4px; }
 .chk {
   display: flex; align-items: center; gap: 6px;
-  cursor: pointer; font-size: 12px; color: var(--text); user-select: none;
+  cursor: pointer; font-size: 14px; color: var(--text); user-select: none;
 }
-.chk input { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+.chk input { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; }
 
 /* ─── MODE CARDS ─────────────────────────────────────────── */
 .mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
 .mcard {
   background: var(--input-bg); border: 1px solid var(--border);
-  border-radius: 4px; padding: 14px 16px; cursor: pointer;
+  border-radius: 4px; padding: 16px 18px; cursor: pointer;
   transition: all .15s; user-select: none;
 }
 .mcard:hover    { border-color: var(--muted); }
 .mcard.selected { border-color: var(--accent); background: #0a1f35; }
-.mcard-name  { font-size: 13px; color: var(--text); font-weight: bold; margin-bottom: 3px; }
-.mcard-desc  { font-size: 11px; color: var(--muted); line-height: 1.4; }
-.mcard-flag  { font-size: 10px; color: var(--accent); margin-top: 6px; font-style: italic; }
+.mcard-name  { font-size: 15px; color: var(--text); font-weight: bold; margin-bottom: 4px; }
+.mcard-desc  { font-size: 13px; color: var(--muted); line-height: 1.5; }
+.mcard-flag  { font-size: 12px; color: var(--accent); margin-top: 7px; font-style: italic; }
 
 /* ─── COMMAND BOX ────────────────────────────────────────── */
 .cmd-wrap  { margin-top: 14px; }
-.cmd-label { font-size: 10px; color: var(--muted); letter-spacing: 2px; margin-bottom: 6px; text-transform: uppercase; }
+.cmd-label { font-size: 12px; color: var(--muted); letter-spacing: 2px; margin-bottom: 6px; text-transform: uppercase; }
 .cmd-box {
   background: var(--input-bg); border: 1px solid var(--border);
-  border-left: 3px solid var(--accent); padding: 12px 14px;
-  font-family: 'Courier New', monospace; font-size: 13px;
-  color: var(--green); word-break: break-all; min-height: 46px; line-height: 1.7;
+  border-left: 3px solid var(--accent); padding: 14px 16px;
+  font-family: 'Courier New', monospace; font-size: 15px;
+  color: var(--green); word-break: break-all; min-height: 50px; line-height: 1.7;
 }
 .cmd-box .py  { color: var(--accent); }
 .cmd-box .arg { color: var(--yellow); }
@@ -125,7 +125,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Courier New', mo
 
 /* ─── BUTTONS ────────────────────────────────────────────── */
 .btn {
-  padding: 8px 18px; font-family: 'Courier New', monospace; font-size: 11px;
+  padding: 10px 22px; font-family: 'Courier New', monospace; font-size: 13px;
   letter-spacing: 1px; cursor: pointer; border: none; border-radius: 2px;
   transition: all .15s; text-transform: uppercase; font-weight: bold;
 }
@@ -154,7 +154,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Courier New', mo
 /* ─── STATUS TABLE ───────────────────────────────────────── */
 .stat-row {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 12px;
+  padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px;
 }
 .stat-row:last-child { border-bottom: none; }
 .stat-key { color: var(--muted); }
@@ -169,15 +169,15 @@ body { background: var(--bg); color: var(--text); font-family: 'Courier New', mo
   background: var(--input-bg); border: 1px solid var(--border);
   border-radius: 3px; padding: 12px; text-align: center;
 }
-.param-name  { font-size: 10px; color: var(--muted); margin-bottom: 6px; letter-spacing: 1px; }
-.param-val   { font-size: 20px; color: var(--accent); font-weight: bold; }
-.param-unit  { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.param-name  { font-size: 12px; color: var(--muted); margin-bottom: 6px; letter-spacing: 1px; }
+.param-val   { font-size: 24px; color: var(--accent); font-weight: bold; }
+.param-unit  { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
 /* ─── FILE LIST ──────────────────────────────────────────── */
 .file-row {
-  display: grid; grid-template-columns: 260px 1fr;
-  padding: 9px 0; border-bottom: 1px solid var(--border);
-  font-size: 12px; gap: 16px;
+  display: grid; grid-template-columns: 280px 1fr;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+  font-size: 14px; gap: 16px;
 }
 .file-row:last-child { border-bottom: none; }
 .file-path { color: var(--accent); }
@@ -185,7 +185,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Courier New', mo
 
 /* ─── SECTION LABEL ──────────────────────────────────────── */
 .section-lbl {
-  font-size: 10px; letter-spacing: 2px; color: var(--orange);
+  font-size: 12px; letter-spacing: 2px; color: var(--orange);
   text-transform: uppercase; margin: 18px 0 10px; display: flex;
   align-items: center; gap: 8px;
 }
@@ -196,8 +196,8 @@ body { background: var(--bg); color: var(--text); font-family: 'Courier New', mo
 /* ─── TOAST ──────────────────────────────────────────────── */
 #toast {
   position: fixed; bottom: 28px; right: 28px;
-  background: var(--green); color: #000; padding: 9px 18px;
-  font-family: 'Courier New', monospace; font-size: 12px; font-weight: bold;
+  background: var(--green); color: #000; padding: 10px 20px;
+  font-family: 'Courier New', monospace; font-size: 14px; font-weight: bold;
   letter-spacing: 1px; border-radius: 2px; opacity: 0;
   transform: translateY(8px); transition: all .25s; pointer-events: none; z-index: 999;
 }
@@ -206,7 +206,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Courier New', mo
 /* ─── RANGE ──────────────────────────────────────────────── */
 .range-wrap { display: flex; align-items: center; gap: 10px; }
 .range-wrap input[type=range] { flex: 1; accent-color: var(--accent); }
-.range-lbl { min-width: 40px; text-align: right; color: var(--accent); font-weight: bold; font-size: 13px; }
+.range-lbl { min-width: 44px; text-align: right; color: var(--accent); font-weight: bold; font-size: 15px; }
 </style>
 </head>
 <body>
@@ -278,7 +278,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Courier New', mo
 
   <div class="card">
     <div class="card-title">Bot Status Check</div>
-    <div style="font-size:12px; color:var(--muted); margin-bottom:14px; line-height:1.6;">
+    <div style="font-size:14px; color:var(--muted); margin-bottom:14px; line-height:1.6;">
       Run one of the commands below in a terminal to check whether <code style="color:var(--accent)">main.py</code> is currently running.
     </div>
     <div class="grid2">
@@ -304,7 +304,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Courier New', mo
 
   <div class="card">
     <div class="card-title">Live vs Backtest Key Differences</div>
-    <div style="font-size:12px; line-height:1.8; color:var(--muted);">
+    <div style="font-size:14px; line-height:1.8; color:var(--muted);">
       <div class="stat-row"><span class="stat-key">Regime model</span><span class="stat-val warn">Live hardcodes "bull" — switching not yet ported from backtest</span></div>
       <div class="stat-row"><span class="stat-key">Entry logic</span><span class="stat-val">Live: quant_entry AND exec_score ≥ 36 · Backtest: momentum + mean-rev dual-gate</span></div>
       <div class="stat-row"><span class="stat-key">Max leverage</span><span class="stat-val">Live: 2.0× · Backtest: 1.5× (default)</span></div>
@@ -421,7 +421,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Courier New', mo
 
   <div class="card">
     <div class="card-title">Run Mode</div>
-    <div style="font-size:12px; color:var(--muted); margin-bottom:14px; line-height:1.6;">
+    <div style="font-size:14px; color:var(--muted); margin-bottom:14px; line-height:1.6;">
       Bayesian Optimization via Optuna TPE. 8 parameters tuned across 4 evaluation periods:
       Jan–Mar 2021 (bull) · Aug–Oct 2022 (bear) · May–Jul 2023 (AI bull) · Oct–Dec 2021 (choppy).
     </div>
@@ -474,7 +474,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Courier New', mo
             <input type="number" id="opt-showbest" value="20" min="1" max="200" oninput="buildOptShow()">
           </div>
         </div>
-        <div class="cmd-box" id="opt-show-cmd" style="font-size:12px;">python backtest/optimize_v2.py --show-best 20</div>
+        <div class="cmd-box" id="opt-show-cmd" style="font-size:14px;">python backtest/optimize_v2.py --show-best 20</div>
         <div class="btn-row">
           <button class="btn btn-ghost" onclick="copyCmd('opt-show-cmd')">Copy</button>
           <button class="btn btn-ghost" onclick="downloadBat('opt-show-cmd','show_best')">Download .bat</button>
@@ -482,7 +482,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Courier New', mo
       </div>
       <div>
         <div class="section-lbl">Export Best Params</div>
-        <div style="font-size:12px; color:var(--muted); margin-bottom:10px; line-height:1.5;">
+        <div style="font-size:14px; color:var(--muted); margin-bottom:10px; line-height:1.5;">
           Writes best trial to <code style="color:var(--accent)">test_params.txt</code> and <code style="color:var(--accent)">test_params_full.json</code>. Safe to run while optimizer is active.
         </div>
         <div class="cmd-box" id="opt-export-cmd">python backtest/optimize_v2.py --export-best</div>
@@ -512,12 +512,12 @@ body { background: var(--bg); color: var(--text); font-family: 'Courier New', mo
 
   <div class="card">
     <div class="card-title">Search Space (8 Parameters)</div>
-    <div style="font-size:12px; color:var(--muted); margin-bottom:14px;">
+    <div style="font-size:14px; color:var(--muted); margin-bottom:14px;">
       Composite score = 0.15×PF + 0.15×WR + 0.25×avgPnL + 0.30×totalReturn + 0.15×(1/drawdown).
       Hard penalties: &gt;40% drawdown → ×0.2 · PF &lt; 0.8 → ×0.3.
     </div>
     <div style="overflow-x:auto;">
-      <table style="width:100%; border-collapse:collapse; font-size:12px;">
+      <table style="width:100%; border-collapse:collapse; font-size:14px;">
         <thead>
           <tr style="color:var(--muted); border-bottom:1px solid var(--border);">
             <th style="text-align:left; padding:6px 10px;">Parameter</th>
@@ -589,7 +589,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Courier New', mo
 
   <div class="card">
     <div class="card-title">Current Strategy Parameters <span class="badge badge-b" style="margin-left:8px;">test_params.txt</span></div>
-    <div style="font-size:12px; color:var(--muted); margin-bottom:16px;">
+    <div style="font-size:14px; color:var(--muted); margin-bottom:16px;">
       These are the parameters loaded by <code style="color:var(--accent)">run_backtest_v2.py</code> when no <code style="color:var(--accent)">--param-file</code> is specified. Edit and download to overwrite the file.
     </div>
 
