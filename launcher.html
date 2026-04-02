@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>War-Room Control Panel</title>
+<style>
+:root {
+  --bg:       #070d16;
+  --panel:    #0d1929;
+  --card:     #0f1f35;
+  --card2:    #111e32;
+  --border:   #1a2f4a;
+  --accent:   #00b4d8;
+  --green:    #06d6a0;
+  --yellow:   #ffd60a;
+  --red:      #ef233c;
+  --orange:   #fb8500;
+  --text:     #ccd6f6;
+  --muted:    #4a6885;
+  --input-bg: #080f1d;
+  --hover:    #152035;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Courier New', monospace; min-height: 100vh; }
+
+/* ─── HEADER ─────────────────────────────────────────────── */
+.header {
+  background: linear-gradient(90deg, #0d1929, #0a1628);
+  border-bottom: 1px solid var(--accent);
+  padding: 14px 32px;
+  display: flex; align-items: center; gap: 14px;
+}
+.header-logo { font-size: 22px; font-weight: bold; color: var(--accent); letter-spacing: 6px; }
+.header-sub  { font-size: 10px; color: var(--muted); letter-spacing: 3px; }
+.header-right { margin-left: auto; display: flex; align-items: center; gap: 18px; }
+.live-indicator { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.dot.on  { background: var(--green); box-shadow: 0 0 6px var(--green); animation: blink 2s infinite; }
+.dot.off { background: var(--red); }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+/* ─── TABS ───────────────────────────────────────────────── */
+.tabs {
+  display: flex; background: var(--panel);
+  border-bottom: 1px solid var(--border); padding: 0 32px; gap: 0;
+}
+.tab {
+  padding: 13px 22px; cursor: pointer; font-size: 11px; letter-spacing: 2px;
+  color: var(--muted); border-bottom: 2px solid transparent;
+  transition: all .15s; user-select: none; text-transform: uppercase;
+}
+.tab:hover  { color: var(--text); background: var(--hover); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ─── CONTENT ────────────────────────────────────────────── */
+.content  { padding: 28px 32px; max-width: 1100px; margin: 0 auto; }
+.panel    { display: none; }
+.panel.active { display: block; }
+
+/* ─── CARDS ──────────────────────────────────────────────── */
+.card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 4px; padding: 20px; margin-bottom: 18px;
+}
+.card-title {
+  font-size: 10px; letter-spacing: 3px; color: var(--accent);
+  text-transform: uppercase; margin-bottom: 16px;
+  padding-bottom: 8px; border-bottom: 1px solid var(--border);
+}
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.grid4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; }
+
+/* ─── FORM ELEMENTS ──────────────────────────────────────── */
+.field { margin-bottom: 12px; }
+.field label {
+  display: block; font-size: 10px; letter-spacing: 1px;
+  color: var(--muted); margin-bottom: 5px; text-transform: uppercase;
+}
+.field input[type=text],
+.field input[type=number],
+.field input[type=date],
+.field select {
+  width: 100%; background: var(--input-bg); border: 1px solid var(--border);
+  color: var(--text); padding: 7px 10px; font-family: 'Courier New', monospace;
+  font-size: 13px; border-radius: 2px; outline: none; transition: border-color .15s;
+}
+.field input:focus, .field select:focus { border-color: var(--accent); }
+.field .hint { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+/* ─── CHECKBOXES ─────────────────────────────────────────── */
+.checks { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 4px; }
+.chk {
+  display: flex; align-items: center; gap: 6px;
+  cursor: pointer; font-size: 12px; color: var(--text); user-select: none;
+}
+.chk input { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+
+/* ─── MODE CARDS ─────────────────────────────────────────── */
+.mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+.mcard {
+  background: var(--input-bg); border: 1px solid var(--border);
+  border-radius: 4px; padding: 14px 16px; cursor: pointer;
+  transition: all .15s; user-select: none;
+}
+.mcard:hover    { border-color: var(--muted); }
+.mcard.selected { border-color: var(--accent); background: #0a1f35; }
+.mcard-name  { font-size: 13px; color: var(--text); font-weight: bold; margin-bottom: 3px; }
+.mcard-desc  { font-size: 11px; color: var(--muted); line-height: 1.4; }
+.mcard-flag  { font-size: 10px; color: var(--accent); margin-top: 6px; font-style: italic; }
+
+/* ─── COMMAND BOX ────────────────────────────────────────── */
+.cmd-wrap  { margin-top: 14px; }
+.cmd-label { font-size: 10px; color: var(--muted); letter-spacing: 2px; margin-bottom: 6px; text-transform: uppercase; }
+.cmd-box {
+  background: var(--input-bg); border: 1px solid var(--border);
+  border-left: 3px solid var(--accent); padding: 12px 14px;
+  font-family: 'Courier New', monospace; font-size: 13px;
+  color: var(--green); word-break: break-all; min-height: 46px; line-height: 1.7;
+}
+.cmd-box .py  { color: var(--accent); }
+.cmd-box .arg { color: var(--yellow); }
+.cmd-box .val { color: var(--text); }
+
+/* ─── BUTTONS ────────────────────────────────────────────── */
+.btn {
+  padding: 8px 18px; font-family: 'Courier New', monospace; font-size: 11px;
+  letter-spacing: 1px; cursor: pointer; border: none; border-radius: 2px;
+  transition: all .15s; text-transform: uppercase; font-weight: bold;
+}
+.btn-accent  { background: var(--accent);  color: #000; }
+.btn-green   { background: var(--green);   color: #000; }
+.btn-orange  { background: var(--orange);  color: #000; }
+.btn-danger  { background: transparent; border: 1px solid var(--red); color: var(--red); }
+.btn-ghost   { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+.btn-accent:hover { filter: brightness(1.15); }
+.btn-green:hover  { filter: brightness(1.15); }
+.btn-orange:hover { filter: brightness(1.15); }
+.btn-danger:hover { background: var(--red); color: #fff; }
+.btn-ghost:hover  { border-color: var(--accent); color: var(--accent); }
+.btn-row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; align-items: center; }
+
+/* ─── BADGES ─────────────────────────────────────────────── */
+.badge {
+  display: inline-block; padding: 1px 8px; font-size: 10px;
+  border-radius: 10px; letter-spacing: 1px; vertical-align: middle;
+}
+.badge-g { background: rgba(6,214,160,.12); color: var(--green);  border: 1px solid var(--green);  }
+.badge-b { background: rgba(0,180,216,.12); color: var(--accent); border: 1px solid var(--accent); }
+.badge-y { background: rgba(255,214,10,.12); color: var(--yellow); border: 1px solid var(--yellow); }
+.badge-r { background: rgba(239,35,60,.12);  color: var(--red);    border: 1px solid var(--red);    }
+
+/* ─── STATUS TABLE ───────────────────────────────────────── */
+.stat-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 12px;
+}
+.stat-row:last-child { border-bottom: none; }
+.stat-key { color: var(--muted); }
+.stat-val { color: var(--text); }
+.stat-val.ok   { color: var(--green); }
+.stat-val.warn { color: var(--yellow); }
+.stat-val.err  { color: var(--red); }
+
+/* ─── PARAMS DISPLAY ─────────────────────────────────────── */
+.param-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.param-box {
+  background: var(--input-bg); border: 1px solid var(--border);
+  border-radius: 3px; padding: 12px; text-align: center;
+}
+.param-name  { font-size: 10px; color: var(--muted); margin-bottom: 6px; letter-spacing: 1px; }
+.param-val   { font-size: 20px; color: var(--accent); font-weight: bold; }
+.param-unit  { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+/* ─── FILE LIST ──────────────────────────────────────────── */
+.file-row {
+  display: grid; grid-template-columns: 260px 1fr;
+  padding: 9px 0; border-bottom: 1px solid var(--border);
+  font-size: 12px; gap: 16px;
+}
+.file-row:last-child { border-bottom: none; }
+.file-path { color: var(--accent); }
+.file-desc { color: var(--muted); line-height: 1.5; }
+
+/* ─── SECTION LABEL ──────────────────────────────────────── */
+.section-lbl {
+  font-size: 10px; letter-spacing: 2px; color: var(--orange);
+  text-transform: uppercase; margin: 18px 0 10px; display: flex;
+  align-items: center; gap: 8px;
+}
+.section-lbl::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+
+/* ─── TOAST ──────────────────────────────────────────────── */
+#toast {
+  position: fixed; bottom: 28px; right: 28px;
+  background: var(--green); color: #000; padding: 9px 18px;
+  font-family: 'Courier New', monospace; font-size: 12px; font-weight: bold;
+  letter-spacing: 1px; border-radius: 2px; opacity: 0;
+  transform: translateY(8px); transition: all .25s; pointer-events: none; z-index: 999;
+}
+#toast.show { opacity: 1; transform: translateY(0); }
+
+/* ─── RANGE ──────────────────────────────────────────────── */
+.range-wrap { display: flex; align-items: center; gap: 10px; }
+.range-wrap input[type=range] { flex: 1; accent-color: var(--accent); }
+.range-lbl { min-width: 40px; text-align: right; color: var(--accent); font-weight: bold; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<!-- ─── HEADER ──────────────────────────────────────────────────── -->
+<div class="header">
+  <div>
+    <div class="header-logo">WAR-ROOM</div>
+    <div class="header-sub">AI Intraday Trading Bot · Control Panel</div>
+  </div>
+  <div class="header-right">
+    <div class="live-indicator">
+      <div class="dot" id="botDot"></div>
+      <span id="botStatusText">Status Unknown</span>
+    </div>
+    <button class="btn btn-ghost" onclick="checkBotStatus()">Check Bot</button>
+  </div>
+</div>
+
+<!-- ─── TABS ─────────────────────────────────────────────────────── -->
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('live',this)">Live Trading</div>
+  <div class="tab" onclick="switchTab('backtest',this)">Backtest</div>
+  <div class="tab" onclick="switchTab('optimizer',this)">Optimizer</div>
+  <div class="tab" onclick="switchTab('params',this)">Parameters</div>
+  <div class="tab" onclick="switchTab('files',this)">Output Files</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     TAB 1 · LIVE TRADING
+═══════════════════════════════════════════════════════════════════ -->
+<div class="content">
+<div class="panel active" id="panel-live">
+
+  <div class="card">
+    <div class="card-title">Launch Mode</div>
+    <div class="mode-grid">
+      <div class="mcard selected" onclick="selectMode('auto',this)">
+        <div class="mcard-name">Auto Mode</div>
+        <div class="mcard-desc">Auto-detects market hours. Runs trading 9:30–15:57 ET, overnight prep when closed.</div>
+        <div class="mcard-flag">python main.py</div>
+      </div>
+      <div class="mcard" onclick="selectMode('force',this)">
+        <div class="mcard-name">Force Mode</div>
+        <div class="mcard-desc">Ignores market hours. Runs trading cycles continuously. Use for live testing outside hours.</div>
+        <div class="mcard-flag">python main.py --force</div>
+      </div>
+      <div class="mcard" onclick="selectMode('once',this)">
+        <div class="mcard-name">Single Cycle</div>
+        <div class="mcard-desc">Runs exactly one 5-minute cycle then exits. Good for regression checks and smoke tests.</div>
+        <div class="mcard-flag">python main.py --once</div>
+      </div>
+      <div class="mcard" onclick="selectMode('assess',this)">
+        <div class="mcard-name">EOD Assessment</div>
+        <div class="mcard-desc">Generates end-of-day markdown report immediately from last trading day. Exits after.</div>
+        <div class="mcard-flag">python main.py --assess</div>
+      </div>
+    </div>
+
+    <div class="cmd-wrap">
+      <div class="cmd-label">Generated Command</div>
+      <div class="cmd-box" id="live-cmd">python main.py</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-green" onclick="copyCmd('live-cmd')">Copy Command</button>
+      <button class="btn btn-accent" onclick="downloadBat('live-cmd','run_bot')">Download .bat</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Bot Status Check</div>
+    <div style="font-size:12px; color:var(--muted); margin-bottom:14px; line-height:1.6;">
+      Run one of the commands below in a terminal to check whether <code style="color:var(--accent)">main.py</code> is currently running.
+    </div>
+    <div class="grid2">
+      <div>
+        <div class="section-lbl">Windows CMD</div>
+        <div class="cmd-box" id="status-cmd-cmd">wmic process where "name='python.exe'" get commandline 2^>nul | findstr "main.py"</div>
+        <div class="btn-row"><button class="btn btn-ghost" onclick="copyCmd('status-cmd-cmd')">Copy</button></div>
+      </div>
+      <div>
+        <div class="section-lbl">PowerShell</div>
+        <div class="cmd-box" id="status-cmd-ps">Get-WmiObject Win32_Process | Where-Object {$_.CommandLine -like "*main.py*"} | Select-Object CommandLine</div>
+        <div class="btn-row"><button class="btn btn-ghost" onclick="copyCmd('status-cmd-ps')">Copy</button></div>
+      </div>
+    </div>
+    <div style="margin-top:14px;">
+      <div class="section-lbl">Key Output Files (check freshness to confirm bot is live)</div>
+      <div class="stat-row"><span class="stat-key">Execution memory (updates each cycle)</span><span class="stat-val">data/execution_memory.json</span></div>
+      <div class="stat-row"><span class="stat-key">Cycle memory (trade theses)</span><span class="stat-val">data/cycle_memory.json</span></div>
+      <div class="stat-row"><span class="stat-key">Research log (debate history)</span><span class="stat-val">data/research_log.jsonl</span></div>
+      <div class="stat-row"><span class="stat-key">EOD reports directory</span><span class="stat-val">data/reports/</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Live vs Backtest Key Differences</div>
+    <div style="font-size:12px; line-height:1.8; color:var(--muted);">
+      <div class="stat-row"><span class="stat-key">Regime model</span><span class="stat-val warn">Live hardcodes "bull" — switching not yet ported from backtest</span></div>
+      <div class="stat-row"><span class="stat-key">Entry logic</span><span class="stat-val">Live: quant_entry AND exec_score ≥ 36 · Backtest: momentum + mean-rev dual-gate</span></div>
+      <div class="stat-row"><span class="stat-key">Max leverage</span><span class="stat-val">Live: 2.0× · Backtest: 1.5× (default)</span></div>
+      <div class="stat-row"><span class="stat-key">LLM agents</span><span class="stat-val">Live: full Research Team debate · Backtest: pure quant, no LLM</span></div>
+      <div class="stat-row"><span class="stat-key">Data source</span><span class="stat-val">Live: Alpaca API + yfinance fallback · Backtest: Kaggle CSV + yfinance 5m</span></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     TAB 2 · BACKTEST
+═══════════════════════════════════════════════════════════════════ -->
+<div class="panel" id="panel-backtest">
+
+  <div class="card">
+    <div class="card-title">Date Range</div>
+    <div class="grid4">
+      <div class="field">
+        <label>Start Date</label>
+        <input type="date" id="bt-start" value="2023-01-01" oninput="buildBt()">
+      </div>
+      <div class="field">
+        <label>End Date</label>
+        <input type="date" id="bt-end" value="2023-12-31" oninput="buildBt()">
+      </div>
+      <div class="field">
+        <label>Top-N Tickers</label>
+        <input type="number" id="bt-topn" value="10" min="1" max="50" oninput="buildBt()">
+      </div>
+      <div class="field">
+        <label>Param File (leave blank for default)</label>
+        <input type="text" id="bt-paramfile" placeholder="backtest/test_params.txt" oninput="buildBt()">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Risk &amp; Execution</div>
+    <div class="grid3">
+      <div class="field">
+        <label>Max Leverage (×)</label>
+        <div class="range-wrap">
+          <input type="range" id="bt-lev" min="1.0" max="5.0" step="0.25" value="1.5" oninput="syncRange('bt-lev','bt-lev-v');buildBt()">
+          <span class="range-lbl" id="bt-lev-v">1.5</span>
+        </div>
+        <div class="hint">1.5 = 150% of capital deployed</div>
+      </div>
+      <div class="field">
+        <label>Max Hold Days</label>
+        <input type="number" id="bt-holddays" value="10" min="0" max="60" oninput="buildBt()">
+        <div class="hint">0 = disabled</div>
+      </div>
+      <div class="field">
+        <label>Slippage (bps)</label>
+        <input type="number" id="bt-slip" value="3" min="0" max="30" step="1" oninput="buildBt()">
+        <div class="hint">e.g. 3 = 0.03% per leg</div>
+      </div>
+      <div class="field">
+        <label>Commission (%)</label>
+        <input type="number" id="bt-comm" value="0.0" min="0" max="0.5" step="0.01" oninput="buildBt()">
+        <div class="hint">0 for Alpaca (free)</div>
+      </div>
+      <div class="field">
+        <label>Cooldown Days (normal)</label>
+        <input type="number" id="bt-cool" value="3" min="0" max="30" oninput="buildBt()">
+      </div>
+      <div class="field">
+        <label>Loss Cooldown Threshold (%)</label>
+        <input type="number" id="bt-losscool" value="-1.5" min="-10" max="0" step="0.1" oninput="buildBt()">
+      </div>
+      <div class="field">
+        <label>Extended Cooldown Days</label>
+        <input type="number" id="bt-extcool" value="10" min="0" max="60" oninput="buildBt()">
+      </div>
+      <div class="field">
+        <label>Regime Dwell Days</label>
+        <input type="number" id="bt-dwell" value="3" min="1" max="21" oninput="buildBt()">
+        <div class="hint">Min days before regime switches</div>
+      </div>
+      <div class="field">
+        <label>HMM Retrain Interval (days)</label>
+        <input type="number" id="bt-retrain" value="21" min="1" max="63" oninput="buildBt()">
+        <div class="hint">21 ≈ monthly · 1 = daily</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Flags</div>
+    <div class="checks">
+      <label class="chk"><input type="checkbox" id="bt-longonly" onchange="buildBt()"> <span>--long-only (ignore regime, always long momentum)</span></label>
+      <label class="chk"><input type="checkbox" id="bt-nofetch"  onchange="buildBt()"> <span>--no-fetch (use cached 5m bars only, skip Alpaca)</span></label>
+      <label class="chk"><input type="checkbox" id="bt-quiet"    onchange="buildBt()"> <span>--quiet (suppress verbose log output)</span></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Generated Command</div>
+    <div class="cmd-box" id="bt-cmd">python backtest/run_backtest_v2.py</div>
+    <div class="btn-row">
+      <button class="btn btn-green"  onclick="copyCmd('bt-cmd')">Copy Command</button>
+      <button class="btn btn-accent" onclick="downloadBat('bt-cmd','run_backtest')">Download .bat</button>
+      <button class="btn btn-ghost"  onclick="resetBt()">Reset Defaults</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     TAB 3 · OPTIMIZER
+═══════════════════════════════════════════════════════════════════ -->
+<div class="panel" id="panel-optimizer">
+
+  <div class="card">
+    <div class="card-title">Run Mode</div>
+    <div style="font-size:12px; color:var(--muted); margin-bottom:14px; line-height:1.6;">
+      Bayesian Optimization via Optuna TPE. 8 parameters tuned across 4 evaluation periods:
+      Jan–Mar 2021 (bull) · Aug–Oct 2022 (bear) · May–Jul 2023 (AI bull) · Oct–Dec 2021 (choppy).
+    </div>
+    <div class="grid3">
+      <div class="mcard selected" id="opt-mode-fresh" onclick="selectOptMode('fresh')">
+        <div class="mcard-name">Fresh Start</div>
+        <div class="mcard-desc">Begin new study. Uses 3 warm-start seeds before random exploration.</div>
+        <div class="mcard-flag">default (no flags)</div>
+      </div>
+      <div class="mcard" id="opt-mode-resume" onclick="selectOptMode('resume')">
+        <div class="mcard-name">Resume</div>
+        <div class="mcard-desc">Continue from existing SQLite study. Auto-detected if DB exists.</div>
+        <div class="mcard-flag">--resume</div>
+      </div>
+      <div class="mcard" id="opt-mode-reset" onclick="selectOptMode('reset')">
+        <div class="mcard-name">Reset &amp; Restart</div>
+        <div class="mcard-desc">Delete existing DB and CSV. Start completely fresh. Destructive.</div>
+        <div class="mcard-flag">--reset</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Scale</div>
+    <div class="grid3">
+      <div class="field">
+        <label>Parallel Workers (--n-jobs)</label>
+        <div class="range-wrap">
+          <input type="range" id="opt-jobs" min="1" max="8" step="1" value="1" oninput="syncRange('opt-jobs','opt-jobs-v');buildOpt()">
+          <span class="range-lbl" id="opt-jobs-v">1</span>
+        </div>
+        <div class="hint">Use ≥2 only after warm-start seeds are done</div>
+      </div>
+      <div class="field">
+        <label>Max Trials (--n-trials, 0 = infinite)</label>
+        <input type="number" id="opt-trials" value="0" min="0" max="10000" oninput="buildOpt()">
+        <div class="hint">Stop with Ctrl+C for infinite runs</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Quick Actions</div>
+    <div class="grid2">
+      <div>
+        <div class="section-lbl">View Leaderboard</div>
+        <div class="field" style="display:flex; gap:10px; align-items:flex-end;">
+          <div style="flex:1">
+            <label>Show Top-N Results</label>
+            <input type="number" id="opt-showbest" value="20" min="1" max="200" oninput="buildOptShow()">
+          </div>
+        </div>
+        <div class="cmd-box" id="opt-show-cmd" style="font-size:12px;">python backtest/optimize_v2.py --show-best 20</div>
+        <div class="btn-row">
+          <button class="btn btn-ghost" onclick="copyCmd('opt-show-cmd')">Copy</button>
+          <button class="btn btn-ghost" onclick="downloadBat('opt-show-cmd','show_best')">Download .bat</button>
+        </div>
+      </div>
+      <div>
+        <div class="section-lbl">Export Best Params</div>
+        <div style="font-size:12px; color:var(--muted); margin-bottom:10px; line-height:1.5;">
+          Writes best trial to <code style="color:var(--accent)">test_params.txt</code> and <code style="color:var(--accent)">test_params_full.json</code>. Safe to run while optimizer is active.
+        </div>
+        <div class="cmd-box" id="opt-export-cmd">python backtest/optimize_v2.py --export-best</div>
+        <div class="btn-row">
+          <button class="btn btn-ghost" onclick="copyCmd('opt-export-cmd')">Copy</button>
+          <button class="btn btn-orange" onclick="downloadBat('opt-export-cmd','export_best')">Download .bat</button>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:14px;">
+      <div class="section-lbl">Pick Best from CSV (safe while optimizer runs)</div>
+      <div class="cmd-box" id="opt-pick-cmd">python backtest/pick_best.py</div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="copyCmd('opt-pick-cmd')">Copy</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Generated Optimizer Command</div>
+    <div class="cmd-box" id="opt-cmd">python backtest/optimize_v2.py</div>
+    <div class="btn-row">
+      <button class="btn btn-green"  onclick="copyCmd('opt-cmd')">Copy Command</button>
+      <button class="btn btn-accent" onclick="downloadBat('opt-cmd','run_optimizer')">Download .bat</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Search Space (8 Parameters)</div>
+    <div style="font-size:12px; color:var(--muted); margin-bottom:14px;">
+      Composite score = 0.15×PF + 0.15×WR + 0.25×avgPnL + 0.30×totalReturn + 0.15×(1/drawdown).
+      Hard penalties: &gt;40% drawdown → ×0.2 · PF &lt; 0.8 → ×0.3.
+    </div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%; border-collapse:collapse; font-size:12px;">
+        <thead>
+          <tr style="color:var(--muted); border-bottom:1px solid var(--border);">
+            <th style="text-align:left; padding:6px 10px;">Parameter</th>
+            <th style="text-align:left; padding:6px 10px;">Range</th>
+            <th style="text-align:left; padding:6px 10px;">Default</th>
+            <th style="text-align:left; padding:6px 10px;">Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:6px 10px; color:var(--accent);">mom_vwap_z_min</td>
+            <td style="padding:6px 10px;">0.1 – 1.5</td>
+            <td style="padding:6px 10px; color:var(--green);">0.3</td>
+            <td style="padding:6px 10px; color:var(--muted);">VWAP z-score min for momentum (price above VWAP)</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:6px 10px; color:var(--accent);">mom_vol_ratio_min</td>
+            <td style="padding:6px 10px;">1.1 – 2.0</td>
+            <td style="padding:6px 10px; color:var(--green);">1.3</td>
+            <td style="padding:6px 10px; color:var(--muted);">Volume vs 20-bar SMA ratio for momentum confirmation</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:6px 10px; color:var(--accent);">mom_delta_min</td>
+            <td style="padding:6px 10px;">0.55 – 0.70</td>
+            <td style="padding:6px 10px; color:var(--green);">0.58</td>
+            <td style="padding:6px 10px; color:var(--muted);">Buy-side delta dominance ratio for momentum</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:6px 10px; color:var(--accent);">rev_vwap_z_max</td>
+            <td style="padding:6px 10px;">-3.5 – -2.0</td>
+            <td style="padding:6px 10px; color:var(--green);">-2.5</td>
+            <td style="padding:6px 10px; color:var(--muted);">VWAP z-score ceiling for mean-reversion entry (oversold)</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:6px 10px; color:var(--accent);">rev_vol_spike_min</td>
+            <td style="padding:6px 10px;">1.5 – 3.0</td>
+            <td style="padding:6px 10px; color:var(--green);">2.0</td>
+            <td style="padding:6px 10px; color:var(--muted);">Volume spike multiplier for capitulation confirmation</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:6px 10px; color:var(--accent);">stop_r</td>
+            <td style="padding:6px 10px;">1.0 – 2.5</td>
+            <td style="padding:6px 10px; color:var(--green);">1.5</td>
+            <td style="padding:6px 10px; color:var(--muted);">Stop distance in ATR multiples</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:6px 10px; color:var(--accent);">target_r</td>
+            <td style="padding:6px 10px;">1.5 – 3.0</td>
+            <td style="padding:6px 10px; color:var(--green);">2.0</td>
+            <td style="padding:6px 10px; color:var(--muted);">Take-profit in ATR multiples (always enforced > stop_r)</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 10px; color:var(--accent);">risk_per_trade</td>
+            <td style="padding:6px 10px;">2% – 7%</td>
+            <td style="padding:6px 10px; color:var(--green);">5%</td>
+            <td style="padding:6px 10px; color:var(--muted);">Equity fraction risked per trade</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     TAB 4 · PARAMETERS
+═══════════════════════════════════════════════════════════════════ -->
+<div class="panel" id="panel-params">
+
+  <div class="card">
+    <div class="card-title">Current Strategy Parameters <span class="badge badge-b" style="margin-left:8px;">test_params.txt</span></div>
+    <div style="font-size:12px; color:var(--muted); margin-bottom:16px;">
+      These are the parameters loaded by <code style="color:var(--accent)">run_backtest_v2.py</code> when no <code style="color:var(--accent)">--param-file</code> is specified. Edit and download to overwrite the file.
+    </div>
+
+    <div class="section-lbl">Momentum Entry</div>
+    <div class="grid3">
+      <div class="field">
+        <label>mom_vwap_z_min — VWAP Z-score min</label>
+        <input type="number" id="p-mom-z"   value="0.3"  step="0.05" min="0.1" max="1.5" oninput="buildParamCmd()">
+        <div class="hint">Price must be this far above VWAP (in Z units)</div>
+      </div>
+      <div class="field">
+        <label>mom_vol_ratio_min — Volume ratio</label>
+        <input type="number" id="p-mom-vr"  value="1.3"  step="0.1"  min="1.0" max="3.0" oninput="buildParamCmd()">
+        <div class="hint">Volume vs 20-bar SMA (1.3 = 30% above avg)</div>
+      </div>
+      <div class="field">
+        <label>mom_delta_min — Buy-side delta</label>
+        <input type="number" id="p-mom-d"   value="0.58" step="0.01" min="0.5" max="0.8"  oninput="buildParamCmd()">
+        <div class="hint">Buy vs total volume ratio (&gt;0.5 = buy dominance)</div>
+      </div>
+    </div>
+
+    <div class="section-lbl">Mean Reversion Entry</div>
+    <div class="grid2">
+      <div class="field">
+        <label>rev_vwap_z_max — VWAP Z-score max (negative)</label>
+        <input type="number" id="p-rev-z"   value="-2.5" step="0.1"  min="-5.0" max="-1.0" oninput="buildParamCmd()">
+        <div class="hint">Must be this far BELOW VWAP (capitulation)</div>
+      </div>
+      <div class="field">
+        <label>rev_vol_spike_min — Volume spike multiplier</label>
+        <input type="number" id="p-rev-vs"  value="2.0"  step="0.1"  min="1.0" max="5.0"  oninput="buildParamCmd()">
+        <div class="hint">Panic volume surge confirming capitulation bar</div>
+      </div>
+    </div>
+
+    <div class="section-lbl">Risk &amp; Exit</div>
+    <div class="grid3">
+      <div class="field">
+        <label>stop_r — Stop distance (× ATR)</label>
+        <input type="number" id="p-stopr"   value="1.5"  step="0.25" min="0.5" max="5.0"  oninput="buildParamCmd()">
+      </div>
+      <div class="field">
+        <label>target_r — Take-profit (× ATR)</label>
+        <input type="number" id="p-tgtr"    value="2.0"  step="0.25" min="1.0" max="6.0"  oninput="buildParamCmd()">
+      </div>
+      <div class="field">
+        <label>risk_per_trade — Equity risked (%)</label>
+        <input type="number" id="p-risk"    value="0.05" step="0.01" min="0.01" max="0.15" oninput="buildParamCmd()">
+        <div class="hint">0.05 = 5% of equity per trade</div>
+      </div>
+    </div>
+
+    <div class="cmd-wrap">
+      <div class="cmd-label">File Preview (test_params.txt content)</div>
+      <div class="cmd-box" id="param-preview" style="color:var(--text); white-space:pre;">mom_vwap_z_min,mom_vol_ratio_min,mom_delta_min,rev_vwap_z_max,rev_vol_spike_min,stop_r,target_r,risk_per_trade
+Input: 0.3,1.3,0.58,-2.5,2.0,1.5,2.0,0.05</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-green"  onclick="downloadParams()">Download test_params.txt</button>
+      <button class="btn btn-ghost"  onclick="resetParams()">Reset to Baseline</button>
+      <button class="btn btn-ghost"  onclick="copyCmd('param-preview')">Copy File Content</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Current Values at a Glance</div>
+    <div class="param-grid" id="param-glance">
+      <!-- populated by JS -->
+    </div>
+  </div>
+
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     TAB 5 · OUTPUT FILES
+═══════════════════════════════════════════════════════════════════ -->
+<div class="panel" id="panel-files">
+
+  <div class="card">
+    <div class="card-title">Live Trading Outputs</div>
+    <div class="file-row"><span class="file-path">data/execution_memory.json</span><span class="file-desc">Critical state file. Pending entries, ATR trailing stops, fills, entry prices. Persists across cycles — do not delete while bot is running.</span></div>
+    <div class="file-row"><span class="file-path">data/cycle_memory.json</span><span class="file-desc">Position theses, trade history, cycle summaries. Rebuilt each cycle but accumulates across the session.</span></div>
+    <div class="file-row"><span class="file-path">data/fundamental_profiles.json</span><span class="file-desc">Daily T-1 universe ranking (top 15 tickers by alpha/beta/vol/momentum). Cached per calendar day — regenerates at midnight.</span></div>
+    <div class="file-row"><span class="file-path">data/research_log.jsonl</span><span class="file-desc">Append-only log of all Bull vs Bear LLM debates and Moderator verdicts. Every cycle appends new entries.</span></div>
+    <div class="file-row"><span class="file-path">data/reports/*.md</span><span class="file-desc">End-of-day markdown assessment reports. Each file is timestamped. Read by the premarket briefing at 9:10 ET next day.</span></div>
+    <div class="file-row"><span class="file-path">data/news_analyst_log.jsonl</span><span class="file-desc">News sentiment scores per ticker per cycle.</span></div>
+    <div class="file-row"><span class="file-path">data/seen_headlines.json</span><span class="file-desc">Dedup cache for news items — prevents re-scoring the same headline.</span></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Backtest Outputs</div>
+    <div class="file-row"><span class="file-path">backtest/results_v2.log</span><span class="file-desc">Detailed trade-by-trade log: dates, tickers, entry/exit prices, stop levels, PnL. Overwritten each run.</span></div>
+    <div class="file-row"><span class="file-path">backtest/outputs/</span><span class="file-desc">Per-run output directory. Contains regime analysis text and PCA visualization chart.</span></div>
+    <div class="file-row"><span class="file-path">backtest/regime_pca_chart.html</span><span class="file-desc">Interactive PCA chart of HMM regime states. Open in browser to visualize regime clusters.</span></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Optimizer Outputs</div>
+    <div class="file-row"><span class="file-path">backtest/optimize_v2_study.db</span><span class="file-desc">SQLite Optuna study database. Resume-safe — used by --resume flag. Do not delete unless intentionally resetting.</span></div>
+    <div class="file-row"><span class="file-path">backtest/v2_optimization_results.csv</span><span class="file-desc">All trials with composite score, per-period metrics, and all 8 parameters. CSV is written live as trials complete — safe to read while optimizer runs.</span></div>
+    <div class="file-row"><span class="file-path">backtest/test_params.txt</span><span class="file-desc">Best params in legacy 2-line CSV format. Written by --export-best or pick_best.py. Read by run_backtest_v2.py as default param file.</span></div>
+    <div class="file-row"><span class="file-path">backtest/test_params_full.json</span><span class="file-desc">Best params in full JSON with composite score and trial number. Also written by --export-best.</span></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Quick Open Commands</div>
+    <div class="grid2">
+      <div>
+        <div class="section-lbl">View Backtest Log (tail)</div>
+        <div class="cmd-box" id="fc-tail">Get-Content backtest/results_v2.log -Tail 50</div>
+        <div class="btn-row"><button class="btn btn-ghost" onclick="copyCmd('fc-tail')">Copy (PowerShell)</button></div>
+      </div>
+      <div>
+        <div class="section-lbl">Open Regime PCA Chart</div>
+        <div class="cmd-box" id="fc-pca">start backtest/regime_pca_chart.html</div>
+        <div class="btn-row"><button class="btn btn-ghost" onclick="copyCmd('fc-pca')">Copy (CMD)</button></div>
+      </div>
+      <div>
+        <div class="section-lbl">View Latest EOD Report</div>
+        <div class="cmd-box" id="fc-eod">Get-ChildItem data/reports/ | Sort-Object LastWriteTime -Desc | Select-Object -First 1 | Get-Content</div>
+        <div class="btn-row"><button class="btn btn-ghost" onclick="copyCmd('fc-eod')">Copy (PowerShell)</button></div>
+      </div>
+      <div>
+        <div class="section-lbl">View Optimizer CSV (top 10)</div>
+        <div class="cmd-box" id="fc-csv">python backtest/optimize_v2.py --show-best 10</div>
+        <div class="btn-row"><button class="btn btn-ghost" onclick="copyCmd('fc-csv')">Copy</button></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div><!-- /content -->
+
+<!-- ─── TOAST ──────────────────────────────────────────────────── -->
+<div id="toast">Copied to clipboard</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════════════════════════════════════════ -->
+<script>
+// ── Tab switching ─────────────────────────────────────────────────
+function switchTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
+}
+
+// ── Live mode selector ────────────────────────────────────────────
+const LIVE_MODES = {
+  auto:   'python main.py',
+  force:  'python main.py --force',
+  once:   'python main.py --once',
+  assess: 'python main.py --assess',
+};
+let currentMode = 'auto';
+function selectMode(mode, el) {
+  currentMode = mode;
+  document.querySelectorAll('.mcard').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('live-cmd').textContent = LIVE_MODES[mode];
+}
+
+// ── Optimizer mode selector ───────────────────────────────────────
+let optMode = 'fresh';
+function selectOptMode(mode) {
+  optMode = mode;
+  ['fresh','resume','reset'].forEach(m => {
+    document.getElementById('opt-mode-' + m).classList.remove('selected');
+  });
+  document.getElementById('opt-mode-' + mode).classList.add('selected');
+  buildOpt();
+}
+
+// ── Backtest command builder ──────────────────────────────────────
+function buildBt() {
+  const start     = document.getElementById('bt-start').value;
+  const end       = document.getElementById('bt-end').value;
+  const topn      = document.getElementById('bt-topn').value;
+  const pf        = document.getElementById('bt-paramfile').value.trim();
+  const lev       = document.getElementById('bt-lev').value;
+  const hold      = document.getElementById('bt-holddays').value;
+  const slipRaw   = parseFloat(document.getElementById('bt-slip').value);
+  const slip      = (slipRaw / 10000).toFixed(4);
+  const comm      = parseFloat(document.getElementById('bt-comm').value) / 100;
+  const cool      = document.getElementById('bt-cool').value;
+  const losscool  = document.getElementById('bt-losscool').value;
+  const extcool   = document.getElementById('bt-extcool').value;
+  const dwell     = document.getElementById('bt-dwell').value;
+  const retrain   = document.getElementById('bt-retrain').value;
+  const longonly  = document.getElementById('bt-longonly').checked;
+  const nofetch   = document.getElementById('bt-nofetch').checked;
+  const quiet     = document.getElementById('bt-quiet').checked;
+
+  let cmd = 'python backtest/run_backtest_v2.py';
+  cmd += ` --start ${start} --end ${end}`;
+  if (topn != '10')       cmd += ` --top-n ${topn}`;
+  if (pf)                 cmd += ` --param-file ${pf}`;
+  if (lev != '1.5')       cmd += ` --max-leverage ${lev}`;
+  if (hold != '10')       cmd += ` --max-hold-days ${hold}`;
+  if (slipRaw != 3)       cmd += ` --slippage ${slip}`;
+  if (comm != 0)          cmd += ` --commission ${comm.toFixed(4)}`;
+  if (cool != '3')        cmd += ` --cooldown-days ${cool}`;
+  if (losscool != '-1.5') cmd += ` --loss-cooldown-threshold ${losscool}`;
+  if (extcool != '10')    cmd += ` --extended-cooldown-days ${extcool}`;
+  if (dwell != '3')       cmd += ` --regime-dwell-days ${dwell}`;
+  if (retrain != '21')    cmd += ` --retrain-interval ${retrain}`;
+  if (longonly)           cmd += ' --long-only';
+  if (nofetch)            cmd += ' --no-fetch';
+  if (quiet)              cmd += ' --quiet';
+
+  document.getElementById('bt-cmd').textContent = cmd;
+}
+
+function resetBt() {
+  document.getElementById('bt-start').value    = '2023-01-01';
+  document.getElementById('bt-end').value      = '2023-12-31';
+  document.getElementById('bt-topn').value     = '10';
+  document.getElementById('bt-paramfile').value = '';
+  document.getElementById('bt-lev').value      = '1.5'; document.getElementById('bt-lev-v').textContent = '1.5';
+  document.getElementById('bt-holddays').value = '10';
+  document.getElementById('bt-slip').value     = '3';
+  document.getElementById('bt-comm').value     = '0.0';
+  document.getElementById('bt-cool').value     = '3';
+  document.getElementById('bt-losscool').value = '-1.5';
+  document.getElementById('bt-extcool').value  = '10';
+  document.getElementById('bt-dwell').value    = '3';
+  document.getElementById('bt-retrain').value  = '21';
+  document.getElementById('bt-longonly').checked = false;
+  document.getElementById('bt-nofetch').checked  = false;
+  document.getElementById('bt-quiet').checked    = false;
+  buildBt();
+}
+
+// ── Optimizer command builder ─────────────────────────────────────
+function buildOpt() {
+  const jobs   = document.getElementById('opt-jobs').value;
+  const trials = document.getElementById('opt-trials').value;
+  let cmd = 'python backtest/optimize_v2.py';
+  if (optMode === 'resume') cmd += ' --resume';
+  if (optMode === 'reset')  cmd += ' --reset';
+  if (jobs != '1')          cmd += ` --n-jobs ${jobs}`;
+  if (trials != '0')        cmd += ` --n-trials ${trials}`;
+  document.getElementById('opt-cmd').textContent = cmd;
+}
+
+function buildOptShow() {
+  const n = document.getElementById('opt-showbest').value;
+  document.getElementById('opt-show-cmd').textContent = `python backtest/optimize_v2.py --show-best ${n}`;
+}
+
+// ── Parameters tab ────────────────────────────────────────────────
+const PARAM_DEFAULTS = {
+  'p-mom-z':  0.3,
+  'p-mom-vr': 1.3,
+  'p-mom-d':  0.58,
+  'p-rev-z':  -2.5,
+  'p-rev-vs': 2.0,
+  'p-stopr':  1.5,
+  'p-tgtr':   2.0,
+  'p-risk':   0.05,
+};
+
+function buildParamCmd() {
+  const z  = parseFloat(document.getElementById('p-mom-z').value);
+  const vr = parseFloat(document.getElementById('p-mom-vr').value);
+  const d  = parseFloat(document.getElementById('p-mom-d').value);
+  const rz = parseFloat(document.getElementById('p-rev-z').value);
+  const vs = parseFloat(document.getElementById('p-rev-vs').value);
+  const sr = parseFloat(document.getElementById('p-stopr').value);
+  const tr = parseFloat(document.getElementById('p-tgtr').value);
+  const rk = parseFloat(document.getElementById('p-risk').value);
+
+  const header = 'mom_vwap_z_min,mom_vol_ratio_min,mom_delta_min,rev_vwap_z_max,rev_vol_spike_min,stop_r,target_r,risk_per_trade';
+  const vals   = `Input: ${z},${vr},${d},${rz},${vs},${sr},${tr},${rk}`;
+  document.getElementById('param-preview').textContent = header + '\n' + vals;
+
+  updateParamGlance(z, vr, d, rz, vs, sr, tr, rk);
+}
+
+function updateParamGlance(z, vr, d, rz, vs, sr, tr, rk) {
+  const items = [
+    { name: 'MOM VWAP Z', val: z,    unit: 'z-score min' },
+    { name: 'MOM VOL R',  val: vr,   unit: 'vol ratio' },
+    { name: 'MOM DELTA',  val: d,    unit: 'buy ratio' },
+    { name: 'REV VWAP Z', val: rz,   unit: 'z-score max' },
+    { name: 'REV VOL SPK',val: vs,   unit: 'spike mult' },
+    { name: 'STOP R',     val: sr,   unit: '× ATR' },
+    { name: 'TARGET R',   val: tr,   unit: '× ATR' },
+    { name: 'RISK/TRADE', val: (rk*100).toFixed(0)+'%', unit: 'of equity' },
+  ];
+  document.getElementById('param-glance').innerHTML = items.map(i => `
+    <div class="param-box">
+      <div class="param-name">${i.name}</div>
+      <div class="param-val">${i.val}</div>
+      <div class="param-unit">${i.unit}</div>
+    </div>
+  `).join('');
+}
+
+function resetParams() {
+  Object.entries(PARAM_DEFAULTS).forEach(([id, v]) => {
+    document.getElementById(id).value = v;
+  });
+  buildParamCmd();
+}
+
+function downloadParams() {
+  const content = document.getElementById('param-preview').textContent;
+  downloadText(content, 'test_params.txt', 'text/plain');
+}
+
+// ── Range slider sync ─────────────────────────────────────────────
+function syncRange(inputId, labelId) {
+  document.getElementById(labelId).textContent = document.getElementById(inputId).value;
+}
+
+// ── Copy to clipboard ─────────────────────────────────────────────
+function copyCmd(id) {
+  const text = document.getElementById(id).textContent.trim();
+  navigator.clipboard.writeText(text).then(() => showToast('Copied to clipboard'))
+    .catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta);
+      ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+      showToast('Copied to clipboard');
+    });
+}
+
+// ── Download .bat ─────────────────────────────────────────────────
+function downloadBat(cmdId, filename) {
+  const cmd = document.getElementById(cmdId).textContent.trim();
+  const bat = `@echo off\r\ncd /d "%~dp0"\r\n${cmd}\r\npause\r\n`;
+  downloadText(bat, filename + '.bat', 'application/bat');
+}
+
+function downloadText(content, filename, mime) {
+  const blob = new Blob([content], { type: mime });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('Downloaded ' + filename);
+}
+
+// ── Toast ─────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ── Bot status (placeholder — checks via clipboard command) ───────
+function checkBotStatus() {
+  const cmd = `wmic process where "name='python.exe'" get commandline 2>nul | findstr "main.py"`;
+  navigator.clipboard.writeText(cmd).catch(()=>{});
+  showToast('Check command copied — paste in CMD');
+}
+
+// ── Init ──────────────────────────────────────────────────────────
+buildBt();
+buildOpt();
+buildParamCmd();
+</script>
+</body>
+</html>
