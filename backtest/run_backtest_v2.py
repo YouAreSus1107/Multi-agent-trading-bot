@@ -536,7 +536,8 @@ def run_backtest_v2(
                                     log(f"  [{day_str}] VWAP-REVERT {ticker} @ {curr_price:.2f} | PnL: {pnl_rv:+.2f}%")
                                     trade_history.append({'date': trade_date, 'ticker': ticker, 'side': pos['side'],
                                                           'entry_price': pos['entry_price'], 'exit_price': curr_price,
-                                                          'pnl': pnl_rv, 'type': 'vwap_revert', 'regime': regime,
+                                                          'pnl': pnl_rv, 'profit_dollars': (pnl_rv / 100.0) * entry_equity_rv,
+                                                          'type': 'vwap_revert', 'regime': regime,
                                                           'strategy_type': 'mean_reversion'})
                                     positions.remove(pos)
                                     continue
@@ -560,7 +561,8 @@ def run_backtest_v2(
                             log(f"  [{day_str}] TIMEOUT {ticker} (MEAN-REV) @ {curr_price:.2f} | PnL: {pnl_tb:+.2f}% | Held {bars_held} bars")
                             trade_history.append({'date': trade_date, 'ticker': ticker, 'side': pos['side'],
                                                   'entry_price': pos['entry_price'], 'exit_price': curr_price,
-                                                  'pnl': pnl_tb, 'type': 'timeout', 'regime': regime,
+                                                  'pnl': pnl_tb, 'profit_dollars': (pnl_tb / 100.0) * entry_equity_tb,
+                                                  'type': 'timeout', 'regime': regime,
                                                   'strategy_type': 'mean_reversion'})
                             positions.remove(pos)
                             continue
@@ -977,8 +979,8 @@ def run_backtest_v2(
     gross_loss_dollars = sum(abs(t['profit_dollars']) for t in losses)
     profit_factor = gross_profit_dollars / gross_loss_dollars if gross_loss_dollars > 0 else float('inf')
     
-    avg_win = gross_profit / win_count if win_count > 0 else 0
-    avg_loss = gross_loss / loss_count if loss_count > 0 else 0
+    avg_win = gross_profit_dollars / win_count if win_count > 0 else 0
+    avg_loss = gross_loss_dollars / loss_count if loss_count > 0 else 0
     avg_pnl = sum(t['pnl'] for t in trade_history) / total_trades
     
     # Regime breakdown
