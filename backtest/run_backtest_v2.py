@@ -688,12 +688,13 @@ def run_backtest_v2(
                 if len(positions) + len(valid_signals) >= max_pos:
                     break
 
-                # Momentum entry: only in bull regime
-                if intraday_regime == 'bull':
+                # Momentum entry: bull (full size) + chop (reduced size)
+                # Bear excluded — momentum in a downtrend is a fade trap
+                if intraday_regime in ('bull', 'chop'):
                     sig = _eval_ticker(ticker, evaluate_momentum_entry, daily_trend_scores)
                     if sig:
                         sig['strategy_type'] = 'momentum'
-                        sig['regime_multiplier'] = 1.0
+                        sig['regime_multiplier'] = 1.0 if intraday_regime == 'bull' else 0.6
                         valid_signals.append(sig)
                         continue
 
