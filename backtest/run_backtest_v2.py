@@ -862,7 +862,7 @@ def run_backtest_v2(
                 positions.append(pos)
                 held_tickers.add(ticker)
 
-                log(f"  [{day_str}] {side.upper()} {ticker} @ {entry_price:.2f} (eff={eff_entry:.2f}) | {reason} | Size: ${position_dollars:,.0f} | Lev: {effective_leverage:.1f}x | Regime: {intraday_regime.upper()}")
+                log(f"  [{day_str}] {side.upper()} {ticker} @ {entry_price:.2f} (eff={eff_entry:.2f}) | {reason} | Size: ${position_dollars:,.0f} | Lev: {effective_leverage:.1f}x | HMM: {regime.upper()} | Intraday: {intraday_regime.upper()}")
         
         # ── EOD: Increment hold-day counter, force-close stale momentum positions ──
         # Mean reversion positions have a 30-bar intraday timeout already.
@@ -983,12 +983,20 @@ def run_backtest_v2(
     avg_loss = gross_loss_dollars / loss_count if loss_count > 0 else 0
     avg_pnl = sum(t['pnl'] for t in trade_history) / total_trades
     
-    # Regime breakdown
+    # Regime breakdown (uses HMM daily regime stored in trade dict)
     bull_trades = [t for t in trade_history if t.get('regime') == 'bull']
     bear_trades = [t for t in trade_history if t.get('regime') == 'bear']
-    
+    chop_trades = [t for t in trade_history if t.get('regime') == 'chop']
+
     bull_win_rate = len([t for t in bull_trades if t['pnl'] > 0]) / len(bull_trades) * 100 if bull_trades else 0
     bear_win_rate = len([t for t in bear_trades if t['pnl'] > 0]) / len(bear_trades) * 100 if bear_trades else 0
+    chop_win_rate = len([t for t in chop_trades if t['pnl'] > 0]) / len(chop_trades) * 100 if chop_trades else 0
+
+    # Strategy-type breakdown
+    mom_trades  = [t for t in trade_history if t.get('strategy_type') == 'momentum']
+    rev_trades  = [t for t in trade_history if t.get('strategy_type') == 'mean_reversion']
+    mom_win_rate = len([t for t in mom_trades if t['pnl'] > 0]) / len(mom_trades) * 100 if mom_trades else 0
+    rev_win_rate = len([t for t in rev_trades if t['pnl'] > 0]) / len(rev_trades) * 100 if rev_trades else 0
     
     # Max drawdown from equity curve
     eq_series = pd.Series([e['equity'] for e in equity_curve])
@@ -1004,9 +1012,14 @@ def run_backtest_v2(
     log(f"Profit Factor: {profit_factor:.2f}")
     log(f"Gross Profit: ${gross_profit_dollars:,.2f} | Gross Loss: ${gross_loss_dollars:,.2f}")
     
-    log(f"\nBreakdown:")
-    log(f"  Bull Regime: {len(bull_trades)} trades | Win Rate: {bull_win_rate:.1f}%")
-    log(f"  Bear Regime: {len(bear_trades)} trades | Win Rate: {bear_win_rate:.1f}%")
+    log(f"\nRegime Breakdown (HMM daily):")
+    log(f"  Bull:  {len(bull_trades):>3} trades | Win Rate: {bull_win_rate:.1f}%")
+    log(f"  Bear:  {len(bear_trades):>3} trades | Win Rate: {bear_win_rate:.1f}%")
+    log(f"  Chop:  {len(chop_trades):>3} trades | Win Rate: {chop_win_rate:.1f}%")
+    log(f"  Total: {len(bull_trades)+len(bear_trades)+len(chop_trades):>3} (should equal {total_trades})")
+    log(f"\nStrategy Breakdown:")
+    log(f"  Momentum:      {len(mom_trades):>3} trades | Win Rate: {mom_win_rate:.1f}%")
+    log(f"  Mean Reversion:{len(rev_trades):>3} trades | Win Rate: {rev_win_rate:.1f}%")
     
     log(f"\nAccount Simulation (Simple Compounding):")
     log(f"Final Equity: ${equity:,.2f} | Total Return: {total_return:+.2f}%")
