@@ -227,200 +227,11 @@ class MultiFactorRegimeModel:
         
         return featured_df
 
-class HMMRegimeModel:
-    """
-    Curated 5-Feature HMM for Bull/Bear Regime Detection.
 
-    Feature set (based on academic/practitioner consensus):
-      1. Log return        -- primary directional signal
-      2. Realized vol 10d  -- volatility clustering (GARCH-like)
-      3. EMA slope 5/20    -- short-vs-medium momentum
-      4. RSI direction     -- overbought/oversold tendency per-regime
-      5. Volume ratio      -- institutional participation strength
+# NOTE: The first HMMRegimeModel definition (5-feature curated version) has been
+# removed. The DataDave1 methodology class below (27-feature, BIC-optimal) is the
+# sole implementation. It was being silently shadowed by the second definition anyway.
 
-    State labelling: mean log-return of each state (not variance).
-      The state with the HIGHER mean return = bull.
-      This prevents the classic inversion bug where 'high-vol cluster' 
-      is mislabelled as bear when it's actually a recovery rally.
-
-    Hysteresis: min_dwell_days prevents whipsaw flips. A regime must
-      persist for N days before the label switches.
-    """
-    def __init__(self, n_regimes: int = 3, min_dwell_days: int = 5, random_state: int = 42):
-        self.n_regimes = n_regimes
-        self.min_dwell_days = min_dwell_days
-        self.random_state = random_state
-
-    def _build_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Engineer 5 orthogonal regime features from OHLCV data."""
-        out = pd.DataFrame(index=df.index)
-
-        # 1. Log returns (handles fat tails better than simple returns)
-        out['log_ret'] = np.log(df['close'] / df['close'].shift(1))
-
-        # 2. Realized volatility: 10-day rolling std of log returns, annualised
-        out['real_vol'] = out['log_ret'].rolling(10).std() * np.sqrt(252)
-
-        # 3. EMA trend slope: gap between 5d and 20d EMA as % of price
-        #    Positive = short-term uptrend, negative = short-term downtrend
-        ema5 = df['close'].ewm(span=5, adjust=False).mean()
-        ema20 = df['close'].ewm(span=20, adjust=False).mean()
-        out['ema_slope'] = (ema5 - ema20) / df['close']
-
-        # 4. RSI(14) in [0,1] range -- overbought/oversold signal per regime
-        delta = df['close'].diff()
-        gain = delta.clip(lower=0).rolling(14).mean()
-        loss = (-delta.clip(upper=0)).rolling(14).mean()
-        rs = gain / loss.replace(0, np.nan)
-        out['rsi_norm'] = (100 - (100 / (1 + rs))) / 100  # scale to [0,1]
-
-        # 5. Volume ratio: today's volume vs 20-day avg (if available)
-        if 'volume' in df.columns and df['volume'].sum() > 0:
-            avg_vol = df['volume'].rolling(20).mean()
-            out['vol_ratio'] = df['volume'] / avg_vol.replace(0, np.nan)
-            out['vol_ratio'] = out['vol_ratio'].clip(0.1, 5.0)
-        else:
-            out['vol_ratio'] = 1.0
-
-        return out
-
-    def _apply_dwell_filter(self, raw_labels: list, states: list) -> list:
-        """Minimum dwell-time hysteresis: regime must persist N bars."""
-        smoothed = []
-        current_state = raw_labels[0]
-        candidate = raw_labels[0]
-        streak = 1
-
-        for label in raw_labels:
-            if label == candidate:
-                streak += 1
-            else:
-                candidate = label
-                streak = 1
-
-            if streak >= self.min_dwell_days:
-                current_state = candidate
-
-    def _apply_state_machine(self, df: pd.DataFrame) -> pd.Series:
-        """Maps orthogonal scores to a raw daily regime label."""
-        raw_regime = pd.Series(index=df.index, dtype='object')
-        raw_regime.fillna('chop', inplace=True) # Default state
-        
-        for idx, row in df.iterrows():
-            if pd.isna(row['close']):
-                continue
-                
-            # Rule 1: High Volatility Stress (Circuit Breaker)
-            # If vol is too high or ATR is exploding, override trend.
-            is_stress = False
-            if pd.notna(row['realized_vol_20d']) and row['realized_vol_20d'] > self.vol_threshold:
-                is_stress = True
-            if pd.notna(row['atr_ratio']) and row['atr_ratio'] > self.atr_expansion:
-                is_stress = True
-                
-            if is_stress:
-                raw_regime[idx] = 'high_volatility_stress'
-                continue
-                
-            # Rule 2: Chop / Low Efficiency
-            # If market is moving sideways inefficiently
-            is_chop = False
-            if pd.notna(row['er_14']) and row['er_14'] < self.er_threshold:
-                is_chop = True
-            if pd.notna(row['chop_14']) and row['chop_14'] > self.chop_idx_threshold:
-                is_chop = True
-                
-            if is_chop:
-                raw_regime[idx] = 'chop'
-                continue
-                
-            # Rule 3: Trend
-            ts = row.get('trend_score', 0)
-            if pd.isna(ts):
-                ts = 0
-                
-            if ts >= self.trend_upper:
-                raw_regime[idx] = 'bull_trend'
-            elif ts <= self.trend_lower:
-                raw_regime[idx] = 'bear_trend'
-            else:
-                raw_regime[idx] = 'chop'
-                
-        return raw_regime
-
-    def _apply_hysteresis(self, raw_regimes: pd.Series) -> pd.Series:
-        """
-        Applies a minimum dwell time anti-whipsaw filter.
-        A state must persist for 'dwell_days' before becoming the official regime.
-        Exception: high_volatility_stress triggers instantly.
-        """
-        smoothed = pd.Series(index=raw_regimes.index, dtype='object')
-        
-        current_official_state = 'chop'
-        candidate_state = 'chop'
-        candidate_days = 0
-        
-        for i in range(len(raw_regimes)):
-            day_state = raw_regimes.iloc[i]
-            
-            if pd.isna(day_state):
-                smoothed.iloc[i] = current_official_state
-                continue
-                
-            # Instant override for stress circuit-breaker
-            if day_state == 'high_volatility_stress':
-                current_official_state = 'high_volatility_stress'
-                candidate_state = day_state
-                candidate_days = 1
-                smoothed.iloc[i] = current_official_state
-                continue
-                
-            # If same state as candidate, increment counter
-            if day_state == candidate_state:
-                candidate_days += 1
-            else:
-                # Reset candidate
-                candidate_state = day_state
-                candidate_days = 1
-                
-            # If candidate persists long enough, it becomes official
-            if candidate_days >= self.dwell_days:
-                current_official_state = candidate_state
-                
-            smoothed.iloc[i] = current_official_state
-            
-        return smoothed
-
-    def compute_regime(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Main entry point.
-        Expects a DataFrame with ['open', 'high', 'low', 'close', 'volume'].
-        Returns the original DataFrame with new columns:
-        - trend_score
-        - realized_vol_20d
-        - er_14 (efficiency ratio)
-        - chop_14 (choppiness index)
-        - regime_raw
-        - regime (the final smoothed state)
-        """
-        # Ensure we have required columns
-        req_cols = ['high', 'low', 'close']
-        for c in req_cols:
-            if c not in df.columns:
-                raise ValueError(f"Input DataFrame must contain '{c}' column.")
-                
-        # 1. Compute Orthogonal Features
-        featured_df = self._compute_features(df)
-        
-        # 2. Apply Rule-Based State Machine Mapping
-        raw_regimes = self._apply_state_machine(featured_df)
-        featured_df['regime_raw'] = raw_regimes
-        
-        # 3. Apply Anti-Whipsaw Filter
-        smoothed_regimes = self._apply_hysteresis(raw_regimes)
-        featured_df['regime'] = smoothed_regimes
-        
-        return featured_df
 
 class HMMRegimeModel:
     """
@@ -843,7 +654,8 @@ class HMMRegimeModel:
     def compute_regime(self, snp_df: pd.DataFrame,
                        aux_df: pd.DataFrame = None,
                        fetch_aux: bool = True,
-                       train_end: str = None) -> pd.DataFrame:
+                       train_end: str = None,
+                       save_chart: bool = True) -> pd.DataFrame:
         """
         Full pipeline. snp_df = OHLCV DataFrame (equal-weighted S&P or SPY).
         If train_end is given, Standard Scaling, PCA, and HMM are fit ONLY on data up to train_end.
@@ -951,15 +763,16 @@ class HMMRegimeModel:
         df["regime"] = df["regime"].ffill().fillna("bull")
 
         # 10. Visualization (Step 7) -- save PCA scatter to HTML next to report
-        try:
-            out_dir = os.path.join(os.path.dirname(__file__), "outputs")
-            os.makedirs(out_dir, exist_ok=True)
-            chart_path = os.path.join(out_dir, "regime_pca_chart.html")
-            prices_for_chart = df.loc[full_valid_df.index, "close"]
-            self.plot_regimes(X_full_pca, raw_states_all, full_valid_df.index, prices=prices_for_chart, save_path=chart_path)
-        except Exception as e:
-            import sys
-            sys.stdout.buffer.write(f"  [HMM] Visualization skipped: {e}\n".encode("utf-8", errors="replace"))
+        if save_chart:
+            try:
+                out_dir = os.path.join(os.path.dirname(__file__), "outputs")
+                os.makedirs(out_dir, exist_ok=True)
+                chart_path = os.path.join(out_dir, "regime_pca_chart.html")
+                prices_for_chart = df.loc[full_valid_df.index, "close"]
+                self.plot_regimes(X_full_pca, raw_states_all, full_valid_df.index, prices=prices_for_chart, save_path=chart_path)
+            except Exception as e:
+                import sys
+                sys.stdout.buffer.write(f"  [HMM] Visualization skipped: {e}\n".encode("utf-8", errors="replace"))
 
         return df[["close", "regime"]]
 

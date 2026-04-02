@@ -227,7 +227,8 @@ def build_quant_metrics(df_15m: pd.DataFrame) -> dict:
             "atr_5m": 0.0, "initial_stop": 0.0, "target_2r": 0.0,
             "vwap": 0.0, "vwap_zscore": 0.0, "vwap_sigma": 0.0, "vwap_signal": "neutral", "price_vs_vwap": "unknown",
             "delta_ratio": 0.5, "buy_pressure": 0, "sell_pressure": 0, "smart_bounce": False, "last_bar_buy_pct": 0.5,
-            "mtf_total_pos": 0, "tsl_1": 0.0,
+            "volume_ratio": 1.0,
+            "mtf_total_pos": 0, "tsl_1": 0.0, "rsi_14": 50.0,
             "quant_signals": []
         }
 
@@ -240,6 +241,7 @@ def build_quant_metrics(df_15m: pd.DataFrame) -> dict:
     if "atr_5m" in df_15m.columns and "vwap_zscore" in df_15m.columns:
         # Fast-Path: Backtester precomputed caching to bypass loop execution scaling
         atr_val = float(last_row["atr_5m"]) if not pd.isna(last_row["atr_5m"]) else 0.0
+        rsi_14_val = float(last_row["rsi_14"]) if "rsi_14" in df_15m.columns and not pd.isna(last_row["rsi_14"]) else 50.0
         
         vwap_data = {
             "vwap": float(last_row["vwap"]),
@@ -256,12 +258,28 @@ def build_quant_metrics(df_15m: pd.DataFrame) -> dict:
             "smart_bounce": bool(last_row["smart_bounce"]),
             "last_bar_buy_pct": float(last_row["last_bar_buy_pct"])
         }
+        volume_ratio_val = float(last_row.get("volume_ratio", 1.0)) if "volume_ratio" in df_15m.columns else 1.0
     else:
         # Live execution or explicit manual pass
         atr_val = compute_atr_14(df_15m)
         vwap_data = compute_vwap_zscore(df_15m)
         delta_data = compute_volume_delta(df_15m)
+        # Compute RSI-14 live (Wilder's EWM)
+        rsi_14_val = 50.0
+        if len(df_15m) >= 15:
+            delta = df_15m["close"].diff()
+            gain = delta.clip(lower=0).ewm(alpha=1/14, adjust=False).mean()
+            loss = (-delta.clip(upper=0)).ewm(alpha=1/14, adjust=False).mean()
+            rs = gain.iloc[-1] / loss.iloc[-1] if loss.iloc[-1] != 0 else float('inf')
+            rsi_14_val = float(100 - (100 / (1 + rs))) if not np.isnan(rs) else 50.0
         
+        # Compute volume_ratio for live execution
+        if len(df_15m) >= 20:
+            vol_sma_live = float(df_15m["volume"].rolling(20).mean().iloc[-1])
+            volume_ratio_val = round(float(df_15m["volume"].iloc[-1]) / max(vol_sma_live, 1.0), 3)
+        else:
+            volume_ratio_val = 1.0
+
         # Inject MTF calculation into the live flow
         if "mtf_total_pos" not in df_15m.columns:
             df_mtf = precompute_mtf_tsl_for_ticker(df_15m)
@@ -317,6 +335,10 @@ def build_quant_metrics(df_15m: pd.DataFrame) -> dict:
         "sell_pressure": delta_data.get("sell_pressure", 0),
         "smart_bounce": delta_data.get("smart_bounce", False),
         "last_bar_buy_pct": delta_data.get("last_bar_buy_pct", 0.5),
+        # Volume Ratio (current bar volume / 20-bar SMA volume)
+        "volume_ratio": volume_ratio_val,
+        # RSI
+        "rsi_14": rsi_14_val,
         # MTF Setup
         "mtf_total_pos": mtf_total_pos,
         "tsl_1": tsl_1,
@@ -484,7 +506,12 @@ def precompute_quant_metrics_for_ticker(df_15m: pd.DataFrame, atr_period: int = 
         
         df["vwap"] = (df["cum_tp_vol"] / df["cum_vol"].replace(0, np.nan)).ffill().fillna(df["close"])
         df["deviation"] = df["close"] - df["vwap"]
-        df["sigma"] = df["deviation"].rolling(window=vwap_z_window, min_periods=5).std()
+        # Volume-weighted cumulative variance (matches live compute_vwap_zscore formula)
+        # variance = Σ(V × (TP - VWAP)²) / Σ(V), reset per day via groupby
+        vw_sq = df["volume"] * (df["typical_price"] - df["vwap"]) ** 2
+        df["sigma"] = np.sqrt(
+            vw_sq.groupby(df['date']).cumsum() / df["cum_vol"].replace(0, np.nan)
+        )
         df["vwap_zscore"] = (df["deviation"] / df["sigma"].replace(0, np.nan)).round(3).fillna(0.0)
         
         # --- 3. Volume Delta Microstructure Block ---
@@ -503,6 +530,14 @@ def precompute_quant_metrics_for_ticker(df_15m: pd.DataFrame, atr_period: int = 
         vol_sma = df["volume"].rolling(volume_sma_window, min_periods=1).mean()
         df["smart_bounce"] = (df["buy_frac"] > 0.75) & (df["volume"] > vol_sma * 1.5)
         df["last_bar_buy_pct"] = df["buy_frac"].round(3)
+        df["volume_ratio"] = (df["volume"] / vol_sma.replace(0, 1.0)).round(3)
+
+        # --- 4. RSI-14 Block (Wilder's EWM — vectorized) ---
+        close_delta = df["close"].diff()
+        gain = close_delta.clip(lower=0).ewm(alpha=1/14, adjust=False).mean()
+        loss = (-close_delta.clip(upper=0)).ewm(alpha=1/14, adjust=False).mean()
+        rs = gain / loss.replace(0, np.nan)
+        df["rsi_14"] = (100 - (100 / (1 + rs))).round(2).fillna(50.0)
 
         df.drop(columns=['date', 'typical_price', 'cum_vol', 'cum_tp_vol', 'deviation', 'buy_frac', 'sell_frac', 'buy_vol', 'sell_vol'], inplace=True, errors='ignore')
         return df

@@ -1,4 +1,3 @@
-import os
 import requests
 import json
 from datetime import datetime
@@ -109,6 +108,88 @@ def send_discord_update(state: dict, cycle: int):
             
     except Exception as e:
         logger.error(f"Exception while sending Discord notification: {e}")
+
+
+def send_optimizer_best(trial_number: int, score: float, params: dict,
+                        period_results: list, total_trades: int) -> None:
+    """
+    Fires whenever the optimizer finds a new best composite score.
+    Sends a compact rich embed with the key params and per-period breakdown.
+    """
+    if not DISCORD_WEBHOOK_URL:
+        return
+    try:
+        p = params
+
+        # ── Colour by score ──────────────────────────────────────────────
+        if score >= 1.0:
+            color = 0x00FF00      # bright green
+        elif score >= 0.7:
+            color = 0x2ECC71      # softer green
+        elif score >= 0.5:
+            color = 0xF1C40F      # yellow
+        else:
+            color = 0xE67E22      # orange
+
+        # ── Period breakdown table ───────────────────────────────────────
+        rows = []
+        for r in period_results:
+            name  = r.get("name", "?")[:22]
+            t     = r.get("total_trades", 0)
+            pf    = r.get("profit_factor", 0.0)
+            wr    = r.get("win_rate", 0.0)
+            dd    = r.get("max_drawdown", 0.0)
+            ret   = r.get("total_return", 0.0)
+            rows.append(f"`{name:<22}` T={t:<3} PF={pf:.2f} WR={wr:.0f}% DD={dd:.1f}% Ret={ret:+.1f}%")
+        periods_text = "\n".join(rows) if rows else "—"
+
+        rr_ratio = round(p.get("target_r", 0) / max(p.get("stop_r", 1), 0.01), 2)
+
+        embed = {
+            "title": f"🏆 New Best — Trial #{trial_number}  |  Score {score:.4f}",
+            "color": color,
+            "fields": [
+                {
+                    "name": "Entry Thresholds",
+                    "value": (
+                        f"MOM:  Z≥{p.get('mom_vwap_z_min', 0):.1f} / VR≥{p.get('mom_vol_ratio_min', 0):.1f} / "
+                        f"DR≥{p.get('mom_delta_min', 0):.2f}\n"
+                        f"REV:  Z≤{p.get('rev_vwap_z_max', 0):.1f} / VS≥{p.get('rev_vol_spike_min', 0):.1f}"
+                    ),
+                    "inline": False,
+                },
+                {
+                    "name": "Risk / Hold",
+                    "value": (
+                        f"Stop R: {p.get('stop_r', 0):.1f}  Target R: {p.get('target_r', 0):.1f}  "
+                        f"R:R = {rr_ratio}×\n"
+                        f"Risk/trade: {p.get('risk_per_trade', 0)*100:.1f}%"
+                    ),
+                    "inline": False,
+                },
+                {
+                    "name": f"Period Breakdown  (Total trades: {total_trades})",
+                    "value": periods_text,
+                    "inline": False,
+                },
+            ],
+            "footer": {"text": f"Optimizer • {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}"},
+        }
+
+        payload = {
+            "username": "War-Room Optimizer",
+            "avatar_url": "https://cdn-icons-png.flaticon.com/512/2933/2933116.png",
+            "embeds": [embed],
+        }
+        response = requests.post(
+            DISCORD_WEBHOOK_URL, json=payload,
+            headers={"Content-Type": "application/json"},
+            timeout=10,
+        )
+        if response.status_code not in (200, 204):
+            logger.error(f"Optimizer Discord notify failed: {response.status_code} - {response.text}")
+    except Exception as e:
+        logger.error(f"send_optimizer_best failed: {e}")
 
 
 def _build_embeds(state: dict, cycle: int) -> list:

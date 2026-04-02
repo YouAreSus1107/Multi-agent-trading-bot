@@ -388,12 +388,27 @@ def rank_universe(
         momentum = compute_momentum_score(t_slice['close'])
         
         # 4. Composite Score (weighted)
-        # Normalise components later via ranking, for now use raw
+        # Beta scoring: reward moderate-high beta (1.0–2.5 ideal for intraday momentum).
+        # Old code rewarded LOW beta which is backwards — we WANT high-beta movers.
+        # Peak at beta=1.5, falls off for beta<0.8 (too slow) or beta>3.0 (too volatile/gappy).
+        beta_score = max(0.0, 1.0 - abs(abs(beta) - 1.5) / 1.5)
+
+        # Volatility cap: reward vol up to ~60% annualised, penalise above.
+        # Uncapped vol caused CVNA-style adverse selection (extreme vol = gap risk, not opportunity).
+        vol_capped = min(volatility, 0.60)
+        vol_score = vol_capped / 0.60  # normalise to 0-1
+
+        # Momentum quality gate: require net positive momentum across timeframes.
+        # A stock can have strong recent 5d momentum but be in a multi-week downtrend.
+        # We only want it if weighted average ROC is genuinely positive.
+        if momentum <= 0.0:
+            continue  # Skip downtrending stocks — intraday dip-buys are handled separately
+
         composite = (
             0.40 * alpha +          # Higher alpha = better
-            0.30 * momentum +       # Stronger momentum = better
-            0.20 * volatility +     # Higher idiosyncratic vol = more opportunity
-            0.10 * (2.0 - abs(beta))  # Prefer beta close to 0 (idiosyncratic)
+            0.30 * momentum +       # Stronger momentum = better (quality-gated above)
+            0.20 * vol_score +      # Capped idiosyncratic vol (opportunity without gap risk)
+            0.10 * beta_score       # Moderate-high beta preferred for intraday momentum
         )
         
         candidates.append({
@@ -531,6 +546,129 @@ def get_trading_days(
 
 _DAILY_SELECTION_CACHE = {}
 
+
+def _build_rolling_regime(
+    spy_df: pd.DataFrame,
+    trading_days: list,
+    start_date: str,
+    end_date: str,
+    retrain_interval_days: int = 21,
+    verbose: bool = True,
+    regime_dwell_days: int = 3,
+) -> pd.Series:
+    """
+    Build a regime label Series using expanding-window HMM retraining.
+
+    The HMM is retrained every `retrain_interval_days` trading days.
+    Each model trains on ALL history up to its retrain date (no look-ahead),
+    then provides strictly out-of-sample forward-filtered predictions for
+    the subsequent window only.
+
+    This prevents the "frozen 2022 bear" problem where a single static model
+    anchors its volatility priors to a past regime and fails to update.
+
+    Results are cached to disk so repeated backtest runs skip retraining.
+    Cache is keyed by (start, end, interval, spy_max_date) — if SPY data is
+    refreshed the key changes and the cache is automatically rebuilt.
+
+    Args:
+        spy_df:               SPY OHLCV DataFrame (full history)
+        trading_days:         Ordered list of pd.Timestamp trading days in backtest
+        start_date:           Backtest start (str YYYY-MM-DD)
+        end_date:             Backtest end (str YYYY-MM-DD)
+        retrain_interval_days: How many trading days between retrains (21 ≈ monthly)
+        verbose:              Print progress
+    Returns:
+        pd.Series indexed by date with 'bull' | 'bear' | 'chop' labels
+    """
+    from backtest.regime_v3 import HMMRegimeModel
+
+    if not trading_days:
+        return pd.Series(dtype="object")
+
+    # ── Disk cache ──────────────────────────────────────────────────────────
+    # Key includes SPY's last available date so stale cache is auto-invalidated
+    # when new daily data is downloaded.
+    spy_max_date = spy_df.index.max().strftime("%Y-%m-%d") if not spy_df.empty else "unknown"
+    cache_fname = (
+        f"hmm_regime_{start_date}_{end_date}"
+        f"_i{retrain_interval_days}_d{regime_dwell_days}_spy{spy_max_date}.parquet"
+    )
+    cache_path = os.path.join(DATA_DIR, cache_fname)
+
+    if os.path.exists(cache_path):
+        try:
+            cached = pd.read_parquet(cache_path).squeeze()
+            cached.index = pd.to_datetime(cached.index)
+            if verbose:
+                counts = cached.value_counts().to_dict()
+                print(
+                    f"  [HMM] Loaded regime from disk cache: {len(cached)} days | "
+                    + " | ".join(f"{k}: {v}" for k, v in counts.items())
+                )
+            return cached
+        except Exception as e:
+            print(f"  [HMM] Cache load failed ({e}), rebuilding...")
+
+    # ── Build from scratch ───────────────────────────────────────────────────
+    retrain_indices = list(range(0, len(trading_days), retrain_interval_days))
+    total = len(retrain_indices)
+    regime_dict: dict = {}
+    last_good_label = "bull"
+
+    for k, idx in enumerate(retrain_indices):
+        train_end_ts = trading_days[idx]
+        train_end_str = train_end_ts.strftime("%Y-%m-%d")
+
+        # Prediction window: from this retrain point up to (but not including) next
+        if k + 1 < len(retrain_indices):
+            next_idx = retrain_indices[k + 1]
+            window_end_ts = trading_days[next_idx] - pd.Timedelta(days=1)
+            window_days = trading_days[idx:next_idx]
+        else:
+            window_end_ts = pd.Timestamp(end_date)
+            window_days = trading_days[idx:]
+
+        if verbose:
+            print(
+                f"  [HMM {k + 1}/{total}] Training <= {train_end_str}"
+                f" | Predicting {train_end_str} -> {window_end_ts.strftime('%Y-%m-%d')}"
+            )
+
+        try:
+            rdf = HMMRegimeModel(min_dwell_days=regime_dwell_days).compute_regime(
+                spy_df, train_end=train_end_str, save_chart=False
+            )
+            window_rows = rdf.loc[train_end_ts:window_end_ts, "regime"]
+            for date, label in window_rows.items():
+                if date not in regime_dict:
+                    regime_dict[date] = label
+                    last_good_label = label
+        except Exception as e:
+            print(f"  [HMM] Segment {k + 1} failed: {e}. Carrying forward '{last_good_label}'.")
+            for day in window_days:
+                if day not in regime_dict:
+                    regime_dict[day] = last_good_label
+
+    result = pd.Series(regime_dict).sort_index()
+
+    # ── Save to disk ─────────────────────────────────────────────────────────
+    try:
+        result.to_frame("regime").to_parquet(cache_path)
+        if verbose:
+            print(f"  [HMM] Regime cached to {os.path.basename(cache_path)}")
+    except Exception as e:
+        print(f"  [HMM] Warning: could not save regime cache: {e}")
+
+    if verbose:
+        counts = result.value_counts().to_dict()
+        print(
+            f"  [HMM] Rolling regime complete: {len(result)} days | "
+            + " | ".join(f"{k}: {v}" for k, v in counts.items())
+        )
+    return result
+
+
 def run_daily_selection(
     all_tickers: dict[str, pd.DataFrame],
     start_date: str = "2023-01-01",
@@ -538,7 +676,9 @@ def run_daily_selection(
     warmup_days: int = 252,
     top_n: int = 10,
     fetch_5m: bool = True,
-    verbose: bool = True
+    verbose: bool = True,
+    retrain_interval_days: int = 21,
+    regime_dwell_days: int = 3,
 ) -> list[dict]:
     """
     Main entry point for Layer 1: run the daily universe selection engine.
@@ -555,66 +695,114 @@ def run_daily_selection(
             intraday_data: {ticker: DataFrame} (if fetch_5m=True)
         }, ...]
     """
-    from backtest.regime_v3 import HMMRegimeModel
-    
     global _DAILY_SELECTION_CACHE
-    cache_key = (start_date, end_date, warmup_days, top_n, fetch_5m)
+    cache_key = (start_date, end_date, warmup_days, top_n, fetch_5m, retrain_interval_days)
     if cache_key in _DAILY_SELECTION_CACHE:
         if verbose:
             print(f"  [CACHE] Restoring {len(_DAILY_SELECTION_CACHE[cache_key])} daily rankings from memory...")
         return _DAILY_SELECTION_CACHE[cache_key]
-        
+
     trading_days = get_trading_days(all_tickers, start_date, end_date)
-    
+
     if not trading_days:
         print(f"No trading days found between {start_date} and {end_date}")
         return []
-    
-    # Compute market regime for the entire period using SPY
+
+    # Compute regime series using rolling expanding-window HMM retraining.
+    # Retrains every retrain_interval_days trading days so the model stays calibrated
+    # as new market data arrives — prevents the "frozen 2022 bear" anchoring problem.
     if SPY_TICKER in all_tickers:
         spy_df = all_tickers[SPY_TICKER]
-        from backtest.regime_v3 import HMMRegimeModel
-        # Train on history up to start_date, inference strictly out-of-sample thereafter.
-        regime_df = HMMRegimeModel().compute_regime(spy_df, train_end=start_date)
-    else:
-        regime_df = None
-    
-    daily_snapshots = []
-    
-    for i, trade_date in enumerate(trading_days):
-        # 1. Rank universe using data UP TO (but not including) trade_date
-        # This prevents look-ahead bias
-        top_picks = rank_universe(
-            all_tickers,
-            as_of_date=trade_date - pd.Timedelta(days=1),
-            lookback_days=warmup_days,
-            ranking_window=30,
-            top_n=top_n
+        regime_series = _build_rolling_regime(
+            spy_df, trading_days, start_date, end_date,
+            retrain_interval_days=retrain_interval_days,
+            verbose=verbose,
+            regime_dwell_days=regime_dwell_days,
         )
-        
+    else:
+        regime_series = pd.Series(dtype="object")
+    
+    # ── Disk cache for ranked ticker lists ───────────────────────────────────
+    # rank_universe() is O(n_tickers) per day → 250 days × 517 tickers = 130K ops.
+    # Rankings are deterministic given daily CSV + warmup_days, so cache to disk.
+    # Cache key includes SPY's last date so it auto-invalidates when data refreshes.
+    spy_max_date = "unknown"
+    if SPY_TICKER in all_tickers and not all_tickers[SPY_TICKER].empty:
+        spy_max_date = all_tickers[SPY_TICKER].index.max().strftime("%Y-%m-%d")
+    rank_cache_fname = (
+        f"rank_cache_{start_date}_{end_date}"
+        f"_w{warmup_days}_n{top_n}_spy{spy_max_date}.parquet"
+    )
+    rank_cache_path = os.path.join(DATA_DIR, rank_cache_fname)
+
+    daily_ranks: dict = {}  # date_str -> list[dict]  (loaded from disk or built below)
+
+    if os.path.exists(rank_cache_path):
+        try:
+            import json as _json
+            rank_df = pd.read_parquet(rank_cache_path)
+            for _, row in rank_df.iterrows():
+                daily_ranks[row["date"]] = _json.loads(row["top_picks_json"])
+            if verbose:
+                print(f"  [RANK CACHE] Loaded {len(daily_ranks)} ranked days from disk (skip re-ranking).")
+        except Exception as e:
+            print(f"  [RANK CACHE] Load failed ({e}), will re-rank.")
+            daily_ranks = {}
+
+    if not daily_ranks:
+        import json as _json
+        if verbose:
+            print(f"  [RANK] Computing universe rankings for {len(trading_days)} days...")
+        rank_rows = []
+        for i, trade_date in enumerate(trading_days):
+            top_picks = rank_universe(
+                all_tickers,
+                as_of_date=trade_date - pd.Timedelta(days=1),
+                lookback_days=warmup_days,
+                ranking_window=30,
+                top_n=top_n
+            )
+            date_str = trade_date.strftime("%Y-%m-%d")
+            daily_ranks[date_str] = top_picks
+            rank_rows.append({"date": date_str, "top_picks_json": _json.dumps(top_picks)})
+            if verbose and (i % 50 == 0 or i == len(trading_days) - 1):
+                print(f"  [RANK] {i+1}/{len(trading_days)} days ranked...")
+        # Save to disk
+        try:
+            pd.DataFrame(rank_rows).to_parquet(rank_cache_path, index=False)
+            if verbose:
+                print(f"  [RANK CACHE] Saved to {os.path.basename(rank_cache_path)}")
+        except Exception as e:
+            print(f"  [RANK CACHE] Warning: could not save: {e}")
+
+    daily_snapshots = []
+
+    for i, trade_date in enumerate(trading_days):
+        date_str = trade_date.strftime("%Y-%m-%d")
+        top_picks = daily_ranks.get(date_str, [])
+
         if not top_picks:
             continue
-        
-        # 2. Determine regime for this day
-        if regime_df is not None and trade_date in regime_df.index:
-            regime = regime_df.loc[trade_date, 'regime']
+
+        # Determine regime for this day (from rolling HMM series)
+        if not regime_series.empty and trade_date in regime_series.index:
+            regime = regime_series.loc[trade_date]
         else:
             regime = 'bull'  # Default to bull if no regime data
-        
-        # 3. Fetch 5m data for selected tickers (+ SPY for reference)
+
+        # Fetch 5m data for selected tickers (+ SPY for reference)
         selected_tickers = [p['ticker'] for p in top_picks] + [SPY_TICKER]
-        
+
         # In bear regime, add inverse ETFs to the selection pool
         if regime == 'bear':
             selected_tickers.extend(INVERSE_ETFS[:5])  # Top 5 inverse ETFs
-        
-        intraday_data = {}
+
         intraday_data = fetch_5m_bars_for_day(
-                selected_tickers,
-                trade_date.to_pydatetime() if hasattr(trade_date, 'to_pydatetime') else trade_date,
-                cache_only=not fetch_5m  # When --no-fetch, load cache only (skip Alpaca)
-            )
-        
+            selected_tickers,
+            trade_date.to_pydatetime() if hasattr(trade_date, 'to_pydatetime') else trade_date,
+            cache_only=not fetch_5m  # When --no-fetch, load cache only (skip Alpaca)
+        )
+
         snapshot = {
             'date': trade_date,
             'regime': regime,
@@ -623,11 +811,11 @@ def run_daily_selection(
             'selected_tickers': selected_tickers
         }
         daily_snapshots.append(snapshot)
-        
+
         if verbose and (i % 20 == 0 or i == len(trading_days) - 1):
             ticker_str = ", ".join([p['ticker'] for p in top_picks[:5]])
-            print(f"  [{trade_date.strftime('%Y-%m-%d')}] Regime={regime.upper():4s} | Top 5: {ticker_str}")
-    
+            print(f"  [{date_str}] Regime={regime.upper():4s} | Top 5: {ticker_str}")
+
     print(f"\n  Daily selection complete: {len(daily_snapshots)} trading days processed")
     _DAILY_SELECTION_CACHE[cache_key] = daily_snapshots
     return daily_snapshots

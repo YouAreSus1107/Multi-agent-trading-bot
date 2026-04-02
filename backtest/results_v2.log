@@ -1,6 +1,6 @@
 ======================================================================
 V2 BACKTEST ENGINE - 3-Layer Architecture
-Period: 2023-01-01 to 2023-03-31
+Period: 2024-01-01 to 2024-12-31
 ======================================================================
 
 [Layer 1] Loading S&P 500 daily data...
@@ -8,145 +8,437 @@ Period: 2023-01-01 to 2023-03-31
 
 [Layer 1+2] Running daily Universe Ranking + Regime Detection...
 
-[Layer 3] Running Intraday 5m Execution on 62 trading days...
-  [2023-01-13] LONG QID @ 23.65 | Score=80 Exec=60 DR=0.65 Z=-2.55 RSI=50.0 | Size: $5,000 | Lev: 0.5x | Regime: BEAR
-  [2023-01-13] TARGET QID (LONG) @ 23.91 | PnL: +0.56%
-  [2023-01-20] LONG WYNN @ 99.69 | Score=69 Exec=50 DR=0.60 Z=-0.66 | Size: $5,028 | Lev: 0.5x | Regime: BULL
-  [2023-01-20] LONG FCX @ 44.33 | Score=64 Exec=41 DR=0.61 Z=1.00 | Size: $5,028 | Lev: 0.5x | Regime: BULL
-  [2023-01-20] TARGET FCX (LONG) @ 44.91 | PnL: +0.65%
-  [2023-01-20] EOD CLOSE WYNN (LONG) @ 99.52 | PnL: -0.09%
-  [2023-01-23] LONG DASH @ 59.62 | Score=63 Exec=44 DR=0.63 Z=0.23 | Size: $5,057 | Lev: 0.5x | Regime: BULL
-  [2023-01-23] TARGET DASH (LONG) @ 60.87 | PnL: +1.04%
-  [2023-01-24] LONG WBD @ 13.46 | Score=58 Exec=41 DR=0.62 Z=0.50 | Size: $5,109 | Lev: 0.5x | Regime: BULL
-  [2023-01-24] LONG XYZ @ 81.07 | Score=56 Exec=41 DR=0.57 Z=0.52 | Size: $5,109 | Lev: 0.5x | Regime: BULL
-  [2023-01-24] STOP WBD (LONG) @ 13.36 | PnL: -0.35%
-  [2023-01-24] EOD CLOSE XYZ (LONG) @ 81.01 | PnL: -0.04%
-  [2023-01-25] LONG WBD @ 13.35 | Score=73 Exec=50 DR=0.59 Z=-0.61 | Size: $5,089 | Lev: 0.5x | Regime: BULL
-  [2023-01-25] LONG EXPE @ 114.91 | Score=58 Exec=41 DR=0.57 Z=1.46 | Size: $5,089 | Lev: 0.5x | Regime: BULL
-  [2023-01-25] TARGET WBD (LONG) @ 13.64 | PnL: +1.10%
-  [2023-01-25] EOD CLOSE EXPE (LONG) @ 115.53 | PnL: +0.27%
-  [2023-01-27] LONG NVDA @ 200.00 | Score=58 Exec=41 DR=0.61 Z=1.03 | Size: $5,160 | Lev: 0.5x | Regime: BULL
-  [2023-01-27] TARGET NVDA (LONG) @ 204.44 | PnL: +1.11%
-  [2023-01-30] LONG ALGN @ 266.45 | Score=73 Exec=56 DR=0.56 Z=1.28 | Size: $5,217 | Lev: 0.5x | Regime: BULL
-  [2023-01-30] LONG WDC @ 44.34 | Score=61 Exec=44 DR=0.57 Z=-0.17 | Size: $5,217 | Lev: 0.5x | Regime: BULL
-  [2023-01-30] STOP WDC (LONG) @ 44.02 | PnL: -0.36%
-  [2023-01-30] EOD CLOSE ALGN (LONG) @ 266.37 | PnL: -0.02%
-  [2023-01-31] LONG COIN @ 57.73 | Score=64 Exec=41 DR=0.56 Z=0.88 | Size: $5,197 | Lev: 0.5x | Regime: BULL
-  [2023-01-31] LONG STX @ 65.98 | Score=61 Exec=44 DR=0.57 Z=-0.11 | Size: $5,197 | Lev: 0.5x | Regime: BULL
-  [2023-01-31] TARGET STX (LONG) @ 67.08 | PnL: +0.83%
-  [2023-01-31] TARGET COIN (LONG) @ 59.76 | PnL: +1.76%
-  [2023-02-02] LONG TSLA @ 189.61 | Score=62 Exec=41 DR=0.57 Z=1.42 | Size: $5,333 | Lev: 0.5x | Regime: BULL
-  [2023-02-02] LONG PNR @ 59.68 | Score=70 Exec=55 DR=0.74 Z=-0.20 | Size: $5,333 | Lev: 0.5x | Regime: BULL
-  [2023-02-02] LONG NVDA @ 214.12 | Score=69 Exec=52 DR=0.67 Z=1.27 | Size: $5,333 | Lev: 0.5x | Regime: BULL
-  [2023-02-02] TARGET TSLA (LONG) @ 194.97 | PnL: +1.41%
-  [2023-02-02] EOD CLOSE PNR (LONG) @ 59.68 | PnL: +0.00%
-  [2023-02-02] EOD CLOSE NVDA (LONG) @ 212.84 | PnL: -0.30%
-  [2023-02-03] LONG TSLA @ 197.19 | Score=62 Exec=45 DR=0.69 Z=1.96 | Size: $5,392 | Lev: 0.5x | Regime: BULL
-  [2023-02-03] LONG CVNA REJECTED | Reason: Sector Cap (Consumer Discretionary)
-  [2023-02-03] LONG META @ 190.92 | Score=61 Exec=44 DR=0.64 Z=-0.33 | Size: $5,392 | Lev: 0.5x | Regime: BULL
-  [2023-02-03] LONG PNR @ 59.65 | Score=72 Exec=55 DR=0.67 Z=0.38 | Size: $5,392 | Lev: 0.5x | Regime: BULL
-  [2023-02-03] LONG CVNA REJECTED | Reason: Sector Cap (Consumer Discretionary)
-  [2023-02-03] STOP PNR (LONG) @ 59.18 | PnL: -0.39%
-  [2023-02-03] STOP TSLA (LONG) @ 194.53 | PnL: -0.68%
-  [2023-02-03] EOD CLOSE META (LONG) @ 187.62 | PnL: -0.86%
-  [2023-02-07] LONG WBD @ 15.13 | Score=73 Exec=56 DR=0.62 Z=0.86 | Size: $5,288 | Lev: 0.5x | Regime: BULL
-  [2023-02-07] TARGET WBD (LONG) @ 15.36 | PnL: +0.74%
-  [2023-02-08] LONG TSLA @ 200.12 | Score=61 Exec=44 DR=0.63 Z=0.08 | Size: $5,328 | Lev: 0.5x | Regime: BULL
-  [2023-02-08] LONG META @ 185.38 | Score=71 Exec=56 DR=0.56 Z=-2.01 | Size: $5,328 | Lev: 0.5x | Regime: BULL
-  [2023-02-08] STOP META (LONG) @ 183.81 | PnL: -0.42%
-  [2023-02-08] EOD CLOSE TSLA (LONG) @ 200.54 | PnL: +0.10%
-  [2023-02-09] LONG UBER @ 36.70 | Score=67 Exec=50 DR=0.57 Z=-0.67 | Size: $5,311 | Lev: 0.5x | Regime: BULL
-  [2023-02-09] LONG NVDA @ 228.71 | Score=58 Exec=41 DR=0.60 Z=1.37 | Size: $5,311 | Lev: 0.5x | Regime: BULL
-  [2023-02-09] STOP UBER (LONG) @ 36.26 | PnL: -0.61%
-  [2023-02-09] STOP NVDA (LONG) @ 226.35 | PnL: -0.51%
-  [2023-02-10] LONG APP @ 15.68 | Score=67 Exec=50 DR=0.59 Z=-0.74 | Size: $5,251 | Lev: 0.5x | Regime: BULL
-  [2023-02-10] STOP APP (LONG) @ 15.30 | PnL: -1.21%
-  [2023-02-13] LONG FTNT @ 59.88 | Score=68 Exec=49 DR=0.58 Z=1.63 | Size: $5,188 | Lev: 0.5x | Regime: BULL
-  [2023-02-13] EOD CLOSE FTNT (LONG) @ 60.15 | PnL: +0.23%
-  [2023-02-14] LONG TSLA @ 198.90 | Score=67 Exec=44 DR=0.56 Z=0.12 | Size: $5,199 | Lev: 0.5x | Regime: BULL
-  [2023-02-14] LONG FTNT @ 60.68 | Score=71 Exec=50 DR=0.58 Z=-0.79 | Size: $5,199 | Lev: 0.5x | Regime: BULL
-  [2023-02-14] LONG SMCI REJECTED | Reason: Sector Cap (Information Technology)
-  [2023-02-14] EOD CLOSE TSLA (LONG) @ 206.15 | PnL: +1.82%
-  [2023-02-14] EOD CLOSE FTNT (LONG) @ 60.68 | PnL: +0.00%
-  [2023-02-15] LONG META @ 175.66 | Score=83 Exec=60 DR=0.57 Z=-2.50 | Size: $5,294 | Lev: 0.5x | Regime: BULL
-  [2023-02-15] EOD CLOSE META (LONG) @ 176.77 | PnL: +0.32%
-  [2023-02-17] LONG WST @ 314.62 | Score=61 Exec=41 DR=0.63 Z=0.75 | Size: $5,311 | Lev: 0.5x | Regime: BULL
-  [2023-02-17] STOP WST (LONG) @ 312.06 | PnL: -0.41%
-  [2023-02-21] LONG COIN @ 65.22 | Score=59 Exec=41 DR=0.57 Z=0.63 | Size: $5,289 | Lev: 0.5x | Regime: BULL
-  [2023-02-21] STOP COIN (LONG) @ 62.92 | PnL: -1.76%
-  [2023-02-22] LONG WYNN @ 107.59 | Score=61 Exec=45 DR=0.70 Z=1.51 | Size: $5,196 | Lev: 0.5x | Regime: BULL
-  [2023-02-22] TARGET WYNN (LONG) @ 108.59 | PnL: +0.46%
-  [2023-02-23] LONG WBD @ 15.39 | Score=76 Exec=60 DR=0.59 Z=-2.98 | Size: $5,220 | Lev: 0.5x | Regime: BULL
-  [2023-02-23] EOD CLOSE WBD (LONG) @ 15.68 | PnL: +0.93%
-  [2023-02-24] LONG EME @ 162.95 | Score=67 Exec=50 DR=0.56 Z=-1.11 | Size: $5,268 | Lev: 0.5x | Regime: BULL
-  [2023-02-24] EOD CLOSE EME (LONG) @ 166.41 | PnL: +1.06%
-  [2023-03-01] LONG SMCI @ 101.61 | Score=65 Exec=44 DR=0.59 Z=0.19 | Size: $5,324 | Lev: 0.5x | Regime: BULL
-  [2023-03-01] EOD CLOSE SMCI (LONG) @ 101.45 | PnL: -0.07%
-  [2023-03-06] LONG MOS @ 56.21 | Score=75 Exec=60 DR=0.66 Z=-1.06 | Size: $5,320 | Lev: 0.5x | Regime: BULL
-  [2023-03-06] EOD CLOSE MOS (LONG) @ 56.33 | PnL: +0.11%
-  [2023-03-07] LONG MOS @ 55.13 | Score=67 Exec=50 DR=0.57 Z=-0.57 | Size: $5,326 | Lev: 0.5x | Regime: BULL
-  [2023-03-07] LONG FSLR @ 213.96 | Score=59 Exec=44 DR=0.58 Z=-0.10 | Size: $5,326 | Lev: 0.5x | Regime: BULL
-  [2023-03-07] STOP MOS (LONG) @ 54.78 | PnL: -0.32%
-  [2023-03-07] EOD CLOSE FSLR (LONG) @ 214.05 | PnL: +0.02%
-  [2023-03-09] LONG META @ 187.17 | Score=58 Exec=44 DR=0.62 Z=-0.17 | Size: $5,310 | Lev: 0.5x | Regime: BULL
-  [2023-03-09] LONG NVDA @ 242.29 | Score=58 Exec=44 DR=0.56 Z=0.05 | Size: $5,310 | Lev: 0.5x | Regime: BULL
-  [2023-03-09] STOP META (LONG) @ 185.63 | PnL: -0.41%
-  [2023-03-09] STOP NVDA (LONG) @ 240.06 | PnL: -0.46%
-  [2023-03-10] LONG GE @ 92.86 | Score=65 Exec=45 DR=0.66 Z=1.97 | Size: $5,264 | Lev: 0.5x | Regime: BULL
-  [2023-03-10] STOP GE (LONG) @ 91.90 | PnL: -0.52%
-  [2023-03-13] LONG ANET @ 146.14 | Score=66 Exec=45 DR=0.67 Z=1.64 | Size: $5,237 | Lev: 0.5x | Regime: BULL
-  [2023-03-13] LONG GE @ 88.95 | Score=61 Exec=44 DR=0.56 Z=-0.20 | Size: $5,237 | Lev: 0.5x | Regime: BULL
-  [2023-03-13] LONG VST @ 24.52 | Score=66 Exec=41 DR=0.60 Z=0.69 | Size: $5,237 | Lev: 0.5x | Regime: BULL
-  [2023-03-13] LONG META @ 179.45 | Score=62 Exec=44 DR=0.56 Z=0.23 | Size: $5,237 | Lev: 0.5x | Regime: BULL
-  [2023-03-13] TARGET VST (LONG) @ 24.97 | PnL: +0.93%
-  [2023-03-13] LONG VST @ 24.70 | Score=66 Exec=41 DR=0.57 Z=1.46 | Size: $5,285 | Lev: 0.5x | Regime: BULL
-  [2023-03-13] STOP GE (LONG) @ 87.95 | PnL: -0.56%
-  [2023-03-13] STOP VST (LONG) @ 24.47 | PnL: -0.46%
-  [2023-03-13] EOD CLOSE ANET (LONG) @ 146.89 | PnL: +0.26%
-  [2023-03-13] EOD CLOSE META (LONG) @ 180.88 | PnL: +0.40%
-  [2023-03-14] LONG PODD @ 309.61 | Score=68 Exec=44 DR=0.62 Z=0.41 | Size: $5,266 | Lev: 0.5x | Regime: BULL
-  [2023-03-14] LONG META @ 189.44 | Score=66 Exec=50 DR=0.61 Z=-1.05 | Size: $5,266 | Lev: 0.5x | Regime: BULL
-  [2023-03-14] LONG GE @ 92.28 | Score=62 Exec=41 DR=0.56 Z=1.47 | Size: $5,266 | Lev: 0.5x | Regime: BULL
-  [2023-03-14] LONG ALGN REJECTED | Reason: Sector Cap (Health Care)
-  [2023-03-14] LONG ALGN REJECTED | Reason: Sector Cap (Health Care)
-  [2023-03-14] LONG ALGN REJECTED | Reason: Sector Cap (Health Care)
-  [2023-03-14] LONG ALGN REJECTED | Reason: Sector Cap (Health Care)
-  [2023-03-14] LONG ALGN REJECTED | Reason: Sector Cap (Health Care)
-  [2023-03-14] LONG ALGN REJECTED | Reason: Sector Cap (Health Care)
-  [2023-03-14] LONG ALGN REJECTED | Reason: Sector Cap (Health Care)
-  [2023-03-14] TARGET META (LONG) @ 193.61 | PnL: +1.10%
-  [2023-03-14] STOP GE (LONG) @ 91.58 | PnL: -0.38%
-  [2023-03-14] EOD CLOSE PODD (LONG) @ 312.73 | PnL: +0.50%
-  [2023-03-16] SHORT ALGN @ 320.67 | Score=82 Exec=60 DR=0.31 Z=2.66 RSI=50.0 | Size: $5,331 | Lev: 0.5x | Regime: BEAR
-  [2023-03-16] STOP ALGN (SHORT) @ 323.24 | PnL: -0.40%
-  [2023-03-23] SHORT CRM @ 189.51 | Score=77 Exec=60 DR=0.39 Z=2.60 RSI=50.0 | Size: $5,309 | Lev: 0.5x | Regime: BEAR
-  [2023-03-23] LONG QID @ 18.36 | Score=80 Exec=60 DR=0.55 Z=-3.06 RSI=50.0 | Size: $5,309 | Lev: 0.5x | Regime: BEAR
-  [2023-03-23] LONG SPXU @ 14.56 | Score=80 Exec=60 DR=0.60 Z=-2.86 RSI=50.0 | Size: $5,309 | Lev: 0.5x | Regime: BEAR
-  [2023-03-23] TARGET QID (LONG) @ 18.50 | PnL: +0.38%
-  [2023-03-23] TARGET SPXU (LONG) @ 14.76 | PnL: +0.69%
-  [2023-03-23] TARGET CRM (SHORT) @ 187.48 | PnL: +0.54%
-  [2023-03-31] LONG QID @ 17.89 | Score=80 Exec=60 DR=0.64 Z=-3.87 RSI=50.0 | Size: $5,395 | Lev: 0.5x | Regime: BEAR
-  [2023-03-31] LONG SPXU @ 13.76 | Score=80 Exec=60 DR=0.59 Z=-2.59 RSI=50.0 | Size: $5,395 | Lev: 0.5x | Regime: BEAR
-  [2023-03-31] STOP QID (LONG) @ 17.82 | PnL: -0.20%
-  [2023-03-31] STOP SPXU (LONG) @ 13.70 | PnL: -0.20%
+[Layer 3] Running Intraday 5m Execution on 252 trading days...
+  [2024-01-02] LONG CVNA @ 49.33 (eff=49.37) | Score=73 Exec=50 DR=0.63 Z=-1.30 | Size: $5,568 | Lev: 0.6x | Regime: BULL
+  [2024-01-02] LONG DLTR @ 144.24 (eff=144.38) | Score=72 Exec=55 DR=0.66 Z=0.18 | Size: $9,432 | Lev: 0.9x | Regime: BULL
+  [2024-01-02] STOP CVNA (LONG) @ 49.49 | PnL: +0.07%
+  [2024-01-02] LONG HOOD @ 12.55 (eff=12.56) | Score=83 Exec=60 DR=0.66 Z=1.03 | Size: $5,579 | Lev: 0.6x | Regime: BULL
+  [2024-01-02] STOP DLTR (LONG) @ 142.64 | PnL: -1.23%
+  [2024-01-02] LONG EXR @ 163.43 (eff=163.59) | Score=74 Exec=55 DR=0.69 Z=-0.24 | Size: $9,248 | Lev: 0.9x | Regime: BULL
+  [2024-01-03] STOP HOOD (LONG) @ 11.69 | PnL: -3.92%
+  [2024-01-03] STOP EXR (LONG) @ 159.23 | PnL: -2.59%
+  [2024-01-03] LONG BXP @ 69.38 (eff=69.45) | Score=71 Exec=55 DR=0.82 Z=0.34 | Size: $9,236 | Lev: 1.0x | Regime: BULL
+  [2024-01-03] LONG DG @ 134.97 (eff=135.11) | Score=75 Exec=60 DR=0.66 Z=-3.14 | Size: $4,618 | Lev: 0.5x | Regime: BULL
+  [2024-01-03] STOP DG (LONG) @ 134.49 | PnL: -0.28%
+  [2024-01-03] TARGET BXP (LONG) @ 70.10 | PnL: +0.84%
+  [2024-01-03] LONG VTRS @ 11.43 (eff=11.44) | Score=67 Exec=52 DR=0.67 Z=1.31 | Size: $9,288 | Lev: 1.0x | Regime: BULL
+  [2024-01-03] LONG INCY @ 66.37 (eff=66.44) | Score=69 Exec=52 DR=0.70 Z=1.15 | Size: $4,644 | Lev: 0.5x | Regime: BULL
+  [2024-01-04] STOP VTRS (LONG) @ 11.52 | PnL: +0.59%
+  [2024-01-04] TARGET INCY (LONG) @ 66.93 | PnL: +0.32%
+  [2024-01-04] LONG AMGN @ 303.93 (eff=304.23) | Score=67 Exec=52 DR=0.69 Z=1.48 | Size: $9,372 | Lev: 1.0x | Regime: BULL
+  [2024-01-05] LONG ALL @ 148.41 (eff=148.56) | Score=77 Exec=60 DR=0.67 Z=-0.72 | Size: $4,686 | Lev: 0.5x | Regime: BULL
+  [2024-01-05] STOP AMGN (LONG) @ 301.33 | PnL: -1.05%
+  [2024-01-05] STOP ALL (LONG) @ 148.87 | PnL: +0.05%
+  [2024-01-08] LONG MRK @ 116.60 (eff=116.72) | Score=75 Exec=60 DR=0.66 Z=-4.17 | Size: $9,278 | Lev: 1.0x | Regime: BULL
+  [2024-01-09] LONG DXCM @ 130.63 (eff=130.76) | Score=68 Exec=60 DR=0.69 Z=-0.64 | Size: $4,639 | Lev: 0.5x | Regime: BULL
+  [2024-01-10] STOP DXCM (LONG) @ 128.36 | PnL: -0.97%
+  [2024-01-10] LONG COIN @ 149.91 (eff=150.05) | Score=70 Exec=52 DR=0.67 Z=1.43 | Size: $4,505 | Lev: 0.5x | Regime: BULL
+  [2024-01-10] STOP COIN (LONG) @ 151.47 | PnL: +0.41%
+  [2024-01-10] LONG MTCH @ 39.19 (eff=39.22) | Score=69 Exec=52 DR=0.68 Z=1.39 | Size: $4,562 | Lev: 0.5x | Regime: BULL
+  [2024-01-10] STOP MTCH (LONG) @ 39.35 | PnL: +0.11%
+  [2024-01-10] LONG AMD @ 148.46 (eff=148.61) | Score=66 Exec=52 DR=0.66 Z=0.76 | Size: $4,577 | Lev: 0.5x | Regime: BULL
+  [2024-01-17] TARGET AMD (LONG) @ 156.64 | PnL: +2.63%
+  [2024-01-17] LONG PANW @ 328.68 (eff=329.01) | Score=67 Exec=52 DR=0.66 Z=1.35 | Size: $4,940 | Lev: 0.5x | Regime: BULL
+  [2024-01-18] TARGET PANW (LONG) @ 336.31 | PnL: +1.10%
+  [2024-01-18] LONG DECK @ 730.25 (eff=730.98) | Score=81 Exec=60 DR=0.68 Z=1.24 | Size: $5,097 | Lev: 0.5x | Regime: BULL
+  [2024-01-18] TARGET DECK (LONG) @ 734.66 | PnL: +0.21%
+  [2024-01-18] LONG BK @ 54.30 (eff=54.35) | Score=77 Exec=60 DR=0.65 Z=-0.84 | Size: $5,128 | Lev: 0.5x | Regime: BULL
+  [2024-01-23] MAX-HOLD MRK (LONG) @ 116.72 | PnL: -0.10% | Held 11 days
+  [2024-01-24] LONG CRWD @ 303.73 (eff=304.03) | Score=69 Exec=52 DR=0.69 Z=1.36 | Size: $9,264 | Lev: 1.0x | Regime: BULL
+  [2024-01-24] TARGET CRWD (LONG) @ 306.76 | PnL: +0.77%
+  [2024-01-24] LONG WDC @ 58.48 (eff=58.54) | Score=72 Exec=55 DR=0.66 Z=0.43 | Size: $9,375 | Lev: 1.0x | Regime: BULL
+  [2024-01-25] TARGET WDC (LONG) @ 59.93 | PnL: +2.21%
+  [2024-01-25] LONG TKO @ 88.41 (eff=88.50) | Score=71 Exec=52 DR=0.72 Z=1.32 | Size: $9,695 | Lev: 1.0x | Regime: BULL
+  [2024-01-25] STOP TKO (LONG) @ 88.81 | PnL: +0.24%
+  [2024-01-25] LONG AVGO @ 1256.14 (eff=1257.40) | Score=75 Exec=60 DR=0.71 Z=-0.79 | Size: $9,731 | Lev: 1.0x | Regime: BULL
+  [2024-01-25] STOP AVGO (LONG) @ 1239.60 | PnL: -1.49%
+  [2024-01-25] LONG CRWD @ 293.37 (eff=293.66) | Score=77 Exec=60 DR=0.64 Z=-5.69 | Size: $9,510 | Lev: 1.0x | Regime: BULL
+  [2024-01-25] STOP CRWD (LONG) @ 294.69 | PnL: +0.24%
+  [2024-01-25] LONG NVDA @ 617.75 (eff=618.37) | Score=77 Exec=60 DR=0.66 Z=-0.88 | Size: $9,545 | Lev: 1.0x | Regime: BULL
+  [2024-01-26] STOP NVDA (LONG) @ 609.00 | PnL: -1.57%
+  [2024-01-26] LONG URI @ 640.59 (eff=641.23) | Score=80 Exec=60 DR=0.67 Z=-1.56 | Size: $9,314 | Lev: 1.0x | Regime: BULL
+  [2024-01-26] STOP URI (LONG) @ 643.10 | PnL: +0.19%
+  [2024-01-26] LONG AMD @ 176.74 (eff=176.92) | Score=77 Exec=60 DR=0.66 Z=-2.02 | Size: $9,341 | Lev: 1.0x | Regime: BULL
+  [2024-01-26] STOP AMD (LONG) @ 177.53 | PnL: +0.24%
+  [2024-01-26] LONG WDC @ 58.84 (eff=58.89) | Score=69 Exec=52 DR=0.67 Z=1.24 | Size: $9,376 | Lev: 1.0x | Regime: BULL
+  [2024-01-29] TARGET WDC (LONG) @ 59.93 | PnL: +1.61%
+  [2024-01-29] LONG AXP @ 199.91 (eff=200.11) | Score=80 Exec=60 DR=0.64 Z=-3.25 | Size: $9,609 | Lev: 1.0x | Regime: BULL
+  [2024-01-31] STOP AXP (LONG) @ 203.50 | PnL: +1.56%
+  [2024-01-31] LONG SMCI @ 526.49 (eff=527.02) | Score=79 Exec=60 DR=0.66 Z=-1.12 | Size: $6,323 | Lev: 0.6x | Regime: BULL
+  [2024-01-31] STOP SMCI (LONG) @ 526.46 | PnL: -0.13%
+  [2024-01-31] LONG RMD @ 191.75 (eff=191.94) | Score=72 Exec=55 DR=0.67 Z=-0.09 | Size: $9,819 | Lev: 1.0x | Regime: BULL
+  [2024-01-31] STOP RMD (LONG) @ 192.02 | PnL: -0.06%
+  [2024-02-01] LONG NFLX @ 567.75 (eff=568.31) | Score=73 Exec=56 DR=0.64 Z=-1.65 | Size: $9,810 | Lev: 1.0x | Regime: BULL
+  [2024-02-01] MAX-HOLD BK (LONG) @ 54.35 | PnL: -0.05% | Held 11 days
+  [2024-02-02] LONG SYK @ 341.17 (eff=341.51) | Score=67 Exec=52 DR=0.75 Z=0.84 | Size: $5,120 | Lev: 0.5x | Regime: BULL
+  [2024-02-06] STOP SYK (LONG) @ 340.36 | PnL: -0.23%
+  [2024-02-06] LONG FTV @ 81.64 (eff=81.72) | Score=70 Exec=55 DR=0.72 Z=-0.26 | Size: $5,087 | Lev: 0.5x | Regime: BULL
+  [2024-02-15] MAX-HOLD NFLX (LONG) @ 568.31 | PnL: -0.10% | Held 11 days
+  [2024-02-16] LONG COIN @ 191.33 (eff=191.52) | Score=73 Exec=52 DR=0.67 Z=1.28 | Size: $7,115 | Lev: 0.7x | Regime: BULL
+  [2024-02-16] LONG TRMB @ 60.42 (eff=60.48) | Score=67 Exec=52 DR=0.69 Z=1.19 | Size: $2,680 | Lev: 0.3x | Regime: BULL
+  [2024-02-16] STOP TRMB (LONG) @ 60.51 | PnL: -0.01%
+  [2024-02-16] LONG CVNA @ 53.58 (eff=53.63) | Score=79 Exec=60 DR=0.68 Z=1.45 | Size: $2,678 | Lev: 0.3x | Regime: BULL
+  [2024-02-16] STOP CVNA (LONG) @ 53.61 | PnL: -0.04%
+  [2024-02-20] STOP COIN (LONG) @ 169.91 | PnL: -8.16%
+  [2024-02-20] LONG APP @ 56.66 (eff=56.72) | Score=70 Exec=55 DR=0.68 Z=-0.10 | Size: $5,883 | Lev: 0.6x | Regime: BULL
+  [2024-02-20] LONG PLTR @ 23.39 (eff=23.41) | Score=75 Exec=52 DR=0.66 Z=1.33 | Size: $2,691 | Lev: 0.3x | Regime: BULL
+  [2024-02-21] STOP APP (LONG) @ 56.48 | PnL: -0.34%
+  [2024-02-21] LONG TPR @ 47.15 (eff=47.19) | Score=69 Exec=52 DR=0.66 Z=1.10 | Size: $5,836 | Lev: 0.6x | Regime: BULL
+  [2024-02-21] MAX-HOLD FTV (LONG) @ 81.72 | PnL: -0.05% | Held 11 days
+  [2024-02-22] TARGET TPR (LONG) @ 47.48 | PnL: +0.33%
+  [2024-02-22] LONG RL @ 187.10 (eff=187.29) | Score=77 Exec=60 DR=0.74 Z=0.97 | Size: $9,101 | Lev: 1.0x | Regime: BULL
+  [2024-02-22] LONG HOOD @ 13.95 (eff=13.96) | Score=73 Exec=52 DR=0.65 Z=1.38 | Size: $1,860 | Lev: 0.2x | Regime: BULL
+  [2024-02-22] STOP HOOD (LONG) @ 13.93 | PnL: -0.08%
+  [2024-02-23] STOP RL (LONG) @ 188.90 | PnL: +0.76%
+  [2024-02-23] LONG AMAT @ 197.75 (eff=197.95) | Score=81 Exec=60 DR=0.70 Z=-3.29 | Size: $9,163 | Lev: 1.0x | Regime: BULL
+  [2024-02-23] STOP AMAT (LONG) @ 198.18 | PnL: +0.02%
+  [2024-02-23] LONG TTD @ 82.01 (eff=82.09) | Score=81 Exec=60 DR=0.66 Z=0.52 | Size: $7,574 | Lev: 0.8x | Regime: BULL
+  [2024-02-23] LONG NVDA @ 797.17 (eff=797.97) | Score=68 Exec=60 DR=0.69 Z=-0.56 | Size: $3,482 | Lev: 0.4x | Regime: BULL
+  [2024-02-23] STOP TTD (LONG) @ 82.08 | PnL: -0.10%
+  [2024-02-26] LONG VST @ 49.30 (eff=49.35) | Score=67 Exec=52 DR=0.65 Z=0.97 | Size: $7,561 | Lev: 0.8x | Regime: BULL
+  [2024-02-26] STOP VST (LONG) @ 48.70 | PnL: -1.18%
+  [2024-02-26] LONG TPR @ 47.84 (eff=47.89) | Score=72 Exec=55 DR=0.66 Z=0.40 | Size: $7,399 | Lev: 0.8x | Regime: BULL
+  [2024-02-26] STOP NVDA (LONG) @ 792.53 | PnL: -0.30%
+  [2024-02-27] LONG EME @ 277.31 (eff=277.59) | Score=69 Exec=52 DR=0.67 Z=1.41 | Size: $3,441 | Lev: 0.4x | Regime: BULL
+  [2024-02-27] STOP EME (LONG) @ 273.81 | PnL: -0.56%
+  [2024-02-27] LONG FIX @ 282.77 (eff=283.05) | Score=75 Exec=60 DR=0.67 Z=-2.14 | Size: $3,366 | Lev: 0.4x | Regime: BULL
+  [2024-02-27] STOP FIX (LONG) @ 284.51 | PnL: +0.16%
+  [2024-02-28] LONG XYZ @ 79.00 (eff=79.08) | Score=71 Exec=52 DR=0.68 Z=1.47 | Size: $3,387 | Lev: 0.4x | Regime: BULL
+  [2024-02-28] STOP XYZ (LONG) @ 79.09 | PnL: -0.03%
+  [2024-02-29] LONG SMCI @ 867.01 (eff=867.88) | Score=77 Exec=59 DR=0.65 Z=-0.17 | Size: $2,377 | Lev: 0.3x | Regime: BULL
+  [2024-02-29] LONG CEG @ 166.01 (eff=166.18) | Score=72 Exec=55 DR=0.70 Z=0.21 | Size: $1,006 | Lev: 0.1x | Regime: BULL
+  [2024-03-01] TARGET PLTR (LONG) @ 24.81 | PnL: +1.73%
+  [2024-03-01] TARGET SMCI (LONG) @ 915.32 | PnL: +1.42%
+  [2024-03-01] STOP CEG (LONG) @ 166.07 | PnL: -0.02%
+  [2024-03-05] LONG DELL @ 115.73 (eff=115.85) | Score=67 Exec=50 DR=0.63 Z=-1.15 | Size: $6,430 | Lev: 0.7x | Regime: BULL
+  [2024-03-06] TARGET DELL (LONG) @ 118.72 | PnL: +1.65%
+  [2024-03-06] LONG AMD @ 212.60 (eff=212.81) | Score=75 Exec=60 DR=0.66 Z=1.24 | Size: $6,728 | Lev: 0.7x | Regime: BULL
+  [2024-03-11] MAX-HOLD TPR (LONG) @ 47.89 | PnL: -0.08% | Held 11 days
+  [2024-03-12] LONG KR @ 55.55 (eff=55.60) | Score=69 Exec=52 DR=0.66 Z=0.93 | Size: $7,388 | Lev: 0.8x | Regime: BULL
+  [2024-03-12] STOP KR (LONG) @ 55.44 | PnL: -0.30%
+  [2024-03-13] LONG CVNA @ 78.51 (eff=78.59) | Score=85 Exec=60 DR=0.69 Z=-1.44 | Size: $3,814 | Lev: 0.4x | Regime: BULL
+  [2024-03-13] LONG DELL @ 110.08 (eff=110.19) | Score=83 Exec=60 DR=0.64 Z=-3.11 | Size: $3,531 | Lev: 0.4x | Regime: BULL
+  [2024-03-13] STOP CVNA (LONG) @ 79.77 | PnL: +0.57%
+  [2024-03-13] LONG MRNA @ 106.42 (eff=106.53) | Score=79 Exec=60 DR=0.66 Z=-12.08 | Size: $3,894 | Lev: 0.4x | Regime: BULL
+  [2024-03-20] MAX-HOLD AMD (LONG) @ 212.81 | PnL: -0.07% | Held 11 days
+  [2024-03-22] LONG HOOD @ 18.50 (eff=18.52) | Score=75 Exec=60 DR=0.63 Z=-2.22 | Size: $6,500 | Lev: 0.7x | Regime: BULL
+  [2024-03-22] LONG APP @ 71.25 (eff=71.32) | Score=67 Exec=52 DR=0.70 Z=1.26 | Size: $219 | Lev: 0.0x | Regime: BULL
+  [2024-03-22] STOP APP (LONG) @ 71.27 | PnL: -0.00%
+  [2024-03-22] LONG EME @ 347.36 (eff=347.70) | Score=70 Exec=60 DR=0.67 Z=-0.66 | Size: $218 | Lev: 0.0x | Regime: BULL
+  [2024-03-26] TARGET HOOD (LONG) @ 19.49 | PnL: +3.52%
+  [2024-03-26] LONG CEG @ 188.03 (eff=188.22) | Score=68 Exec=60 DR=0.63 Z=-4.35 | Size: $6,998 | Lev: 0.7x | Regime: BULL
+  [2024-03-26] STOP CEG (LONG) @ 187.14 | PnL: -0.48%
+  [2024-03-27] STOP EME (LONG) @ 350.87 | PnL: +0.02%
+  [2024-03-27] LONG VST @ 68.41 (eff=68.48) | Score=69 Exec=52 DR=0.67 Z=0.95 | Size: $7,148 | Lev: 0.7x | Regime: BULL
+  [2024-03-27] MAX-HOLD DELL (LONG) @ 110.19 | PnL: -0.04% | Held 11 days
+  [2024-03-27] MAX-HOLD MRNA (LONG) @ 106.53 | PnL: -0.04% | Held 11 days
+  [2024-03-28] TARGET VST (LONG) @ 69.03 | PnL: +0.52%
+  [2024-03-28] LONG SMCI @ 1010.77 (eff=1011.78) | Score=73 Exec=55 DR=0.71 Z=-0.47 | Size: $6,470 | Lev: 0.7x | Regime: BULL
+  [2024-03-28] LONG WSM @ 318.46 (eff=318.78) | Score=69 Exec=52 DR=0.65 Z=1.09 | Size: $8,168 | Lev: 0.8x | Regime: BULL
+  [2024-04-01] STOP SMCI (LONG) @ 1048.58 | PnL: +2.34%
+  [2024-04-01] LONG COIN @ 257.95 (eff=258.21) | Score=76 Exec=60 DR=0.66 Z=-1.67 | Size: $6,072 | Lev: 0.6x | Regime: BULL
+  [2024-04-01] STOP WSM (LONG) @ 317.09 | PnL: -0.53%
+  [2024-04-01] LONG VST @ 72.44 (eff=72.51) | Score=69 Exec=52 DR=0.68 Z=1.45 | Size: $8,832 | Lev: 0.9x | Regime: BULL
+  [2024-04-02] STOP VST (LONG) @ 70.39 | PnL: -2.68%
+  [2024-04-02] LONG DELL @ 117.14 (eff=117.26) | Score=66 Exec=52 DR=0.67 Z=1.15 | Size: $8,433 | Lev: 0.9x | Regime: BULL
+  [2024-04-04] STOP DELL (LONG) @ 132.26 | PnL: +11.06%
+  [2024-04-04] LONG VLO @ 182.91 (eff=183.09) | Score=69 Exec=52 DR=0.65 Z=1.34 | Size: $10,038 | Lev: 0.9x | Regime: BULL
+  [2024-04-04] STOP VLO (LONG) @ 182.95 | PnL: -0.17%
+  [2024-04-04] LONG WDC @ 72.49 (eff=72.56) | Score=72 Exec=55 DR=0.70 Z=0.01 | Size: $7,975 | Lev: 0.7x | Regime: BULL
+  [2024-04-04] LONG MU @ 128.44 (eff=128.57) | Score=69 Exec=52 DR=0.68 Z=0.97 | Size: $2,036 | Lev: 0.2x | Regime: BULL
+  [2024-04-04] STOP WDC (LONG) @ 71.12 | PnL: -1.55%
+  [2024-04-04] STOP MU (LONG) @ 125.67 | PnL: -0.45%
+  [2024-04-04] LONG MPC @ 216.61 (eff=216.83) | Score=77 Exec=60 DR=0.65 Z=-2.67 | Size: $9,690 | Lev: 0.9x | Regime: BULL
+  [2024-04-05] TARGET MPC (LONG) @ 219.00 | PnL: +0.83%
+  [2024-04-05] LONG NRG @ 72.26 (eff=72.33) | Score=69 Exec=52 DR=0.68 Z=0.83 | Size: $8,911 | Lev: 0.8x | Regime: BULL
+  [2024-04-05] STOP NRG (LONG) @ 72.64 | PnL: +0.28%
+  [2024-04-08] LONG GE @ 156.25 (eff=156.41) | Score=70 Exec=52 DR=0.66 Z=1.40 | Size: $9,131 | Lev: 0.9x | Regime: BULL
+  [2024-04-08] LONG MPC @ 218.10 (eff=218.32) | Score=69 Exec=52 DR=0.70 Z=1.00 | Size: $735 | Lev: 0.1x | Regime: BULL
+  [2024-04-08] STOP MPC (LONG) @ 218.09 | PnL: -0.01%
+  [2024-04-09] STOP GE (LONG) @ 151.26 | PnL: -2.91%
+  [2024-04-10] LONG FCX @ 51.17 (eff=51.23) | Score=69 Exec=52 DR=0.74 Z=1.39 | Size: $9,400 | Lev: 0.9x | Regime: BULL
+  [2024-04-12] STOP COIN (LONG) @ 247.38 | PnL: -2.61%
+  [2024-04-12] LONG TKO @ 97.20 (eff=97.30) | Score=77 Exec=60 DR=0.67 Z=-3.65 | Size: $5,681 | Lev: 0.6x | Regime: BULL
+  [2024-04-15] STOP TKO (LONG) @ 96.81 | PnL: -0.34%
+  [2024-04-15] LONG FSLR @ 178.12 (eff=178.29) | Score=81 Exec=60 DR=0.66 Z=-2.94 | Size: $5,629 | Lev: 0.6x | Regime: BULL
+  [2024-04-16] STOP FCX (LONG) @ 48.66 | PnL: -4.65%
+  [2024-04-18] STOP FSLR (LONG) @ 174.38 | PnL: -1.29%
+  [2024-04-29] LONG CVNA @ 85.14 (eff=85.22) | Score=78 Exec=60 DR=0.29 Z=-2.15 RSI=15.5 | Size: $4,705 | Lev: 0.5x | Regime: CHOP
+  [2024-04-29] LONG GOOG @ 168.62 (eff=168.79) | Score=80 Exec=60 DR=0.20 Z=-2.22 RSI=28.2 | Size: $4,705 | Lev: 0.5x | Regime: CHOP
+  [2024-04-30] TIMEOUT CVNA (DIP-BUY) @ 82.99 | PnL: -1.36% | Held 283 bars
+  [2024-04-30] LONG RMD @ 212.41 (eff=212.62) | Score=84 Exec=59 DR=0.31 Z=-2.45 RSI=24.2 | Size: $4,641 | Lev: 0.5x | Regime: CHOP
+  [2024-04-30] LONG CARR @ 62.16 (eff=62.23) | Score=80 Exec=55 DR=0.29 Z=-2.18 RSI=32.0 | Size: $4,577 | Lev: 0.5x | Regime: CHOP
+  [2024-04-30] TARGET RMD (LONG) @ 213.61 | PnL: +0.18%
+  [2024-04-30] LONG NEM @ 40.57 (eff=40.61) | Score=79 Exec=60 DR=0.31 Z=-3.05 RSI=34.9 | Size: $4,650 | Lev: 0.5x | Regime: CHOP
+  [2024-05-01] TIMEOUT CARR (DIP-BUY) @ 60.76 | PnL: -1.21% | Held 273 bars
+  [2024-05-02] LONG SPXU @ 36.92 (eff=36.96) | Score=72 Exec=52 DR=0.70 Z=0.72 | Size: $4,426 | Lev: 0.5x | Regime: BEAR
+  [2024-05-02] STOP SPXU (LONG) @ 36.43 | PnL: -0.73%
+  [2024-05-03] LONG PSQ @ 45.04 (eff=45.09) | Score=75 Exec=55 DR=0.77 Z=-0.19 | Size: $4,325 | Lev: 0.5x | Regime: BEAR
+  [2024-05-06] STOP PSQ (LONG) @ 44.66 | PnL: -0.49%
+  [2024-05-06] LONG RMD @ 216.69 (eff=216.91) | Score=79 Exec=60 DR=0.30 Z=-2.78 RSI=32.5 | Size: $4,258 | Lev: 0.5x | Regime: BEAR
+  [2024-05-06] STOP RMD (LONG) @ 216.47 | PnL: -0.14%
+  [2024-05-07] LONG APTV @ 83.86 (eff=83.95) | Score=79 Exec=60 DR=0.65 Z=-2.82 | Size: $4,239 | Lev: 0.5x | Regime: BULL
+  [2024-05-08] STOP APTV (LONG) @ 82.64 | PnL: -0.77%
+  [2024-05-08] LONG GRMN @ 169.73 (eff=169.90) | Score=77 Exec=60 DR=0.65 Z=-0.68 | Size: $4,134 | Lev: 0.5x | Regime: BULL
+  [2024-05-09] STOP GRMN (LONG) @ 168.68 | PnL: -0.38%
+  [2024-05-09] LONG DELL @ 130.43 (eff=130.56) | Score=81 Exec=60 DR=0.66 Z=0.91 | Size: $4,083 | Lev: 0.5x | Regime: BULL
+  [2024-05-09] STOP DELL (LONG) @ 131.61 | PnL: +0.32%
+  [2024-05-09] LONG CEG @ 211.85 (eff=212.06) | Score=67 Exec=52 DR=0.66 Z=1.48 | Size: $4,126 | Lev: 0.5x | Regime: BULL
+  [2024-05-09] TARGET CEG (LONG) @ 215.53 | PnL: +0.71%
+  [2024-05-10] LONG NRG @ 83.86 (eff=83.95) | Score=70 Exec=52 DR=0.65 Z=0.54 | Size: $4,221 | Lev: 0.5x | Regime: BULL
+  [2024-05-14] STOP NRG (LONG) @ 82.33 | PnL: -0.95%
+  [2024-05-14] LONG APP @ 82.56 (eff=82.64) | Score=71 Exec=52 DR=0.69 Z=0.90 | Size: $4,093 | Lev: 0.5x | Regime: BULL
+  [2024-05-14] STOP APP (LONG) @ 83.04 | PnL: +0.17%
+  [2024-05-15] LONG CEG @ 223.50 (eff=223.72) | Score=69 Exec=52 DR=0.66 Z=1.18 | Size: $4,116 | Lev: 0.5x | Regime: BULL
+  [2024-05-16] STOP CEG (LONG) @ 219.26 | PnL: -0.96%
+  [2024-05-16] LONG ANET @ 322.53 (eff=322.85) | Score=75 Exec=60 DR=0.66 Z=-4.61 | Size: $3,987 | Lev: 0.4x | Regime: BULL
+  [2024-05-31] MAX-HOLD ANET (LONG) @ 322.85 | PnL: -0.04% | Held 11 days
+  [2024-06-03] LONG NVDA @ 1131.01 (eff=1132.14) | Score=81 Exec=60 DR=0.67 Z=-2.15 | Size: $3,981 | Lev: 0.4x | Regime: BULL
+  [2024-06-03] STOP NVDA (LONG) @ 1128.73 | PnL: -0.18%
+  [2024-06-03] LONG VST @ 92.67 (eff=92.76) | Score=83 Exec=60 DR=0.66 Z=-2.33 | Size: $3,957 | Lev: 0.4x | Regime: BULL
+  [2024-06-17] MAX-HOLD VST (LONG) @ 92.76 | PnL: -0.04% | Held 11 days
+  [2024-06-18] LONG ORCL @ 144.04 (eff=144.18) | Score=67 Exec=52 DR=0.68 Z=1.29 | Size: $3,951 | Lev: 0.4x | Regime: BULL
+  [2024-06-18] STOP ORCL (LONG) @ 144.53 | PnL: +0.06%
+  [2024-06-18] LONG AVGO @ 1817.01 (eff=1818.83) | Score=72 Exec=55 DR=0.71 Z=-0.02 | Size: $3,960 | Lev: 0.4x | Regime: BULL
+  [2024-06-18] STOP AVGO (LONG) @ 1811.83 | PnL: -0.22%
+  [2024-06-18] LONG FSLR @ 261.68 (eff=261.94) | Score=78 Exec=60 DR=0.69 Z=1.38 | Size: $3,931 | Lev: 0.4x | Regime: BULL
+  [2024-07-03] MAX-HOLD FSLR (LONG) @ 261.94 | PnL: -0.04% | Held 11 days
+  [2024-07-05] LONG ANET @ 363.28 (eff=363.64) | Score=72 Exec=55 DR=0.66 Z=0.00 | Size: $3,925 | Lev: 0.4x | Regime: BULL
+  [2024-07-05] TARGET ANET (LONG) @ 366.36 | PnL: +0.29%
+  [2024-07-05] LONG CVNA @ 125.52 (eff=125.65) | Score=76 Exec=55 DR=0.66 Z=-0.04 | Size: $3,963 | Lev: 0.4x | Regime: BULL
+  [2024-07-05] TARGET CVNA (LONG) @ 126.46 | PnL: +0.24%
+  [2024-07-08] LONG AAPL @ 225.88 (eff=226.11) | Score=69 Exec=52 DR=0.68 Z=1.11 | Size: $3,995 | Lev: 0.4x | Regime: BULL
+  [2024-07-08] STOP AAPL (LONG) @ 226.71 | PnL: +0.07%
+  [2024-07-08] LONG TSLA @ 252.19 (eff=252.44) | Score=74 Exec=59 DR=0.64 Z=-0.49 | Size: $4,005 | Lev: 0.4x | Regime: BULL
+  [2024-07-09] TARGET TSLA (LONG) @ 256.35 | PnL: +0.65%
+  [2024-07-09] LONG NVDA @ 132.65 (eff=132.78) | Score=70 Exec=52 DR=0.71 Z=1.14 | Size: $4,092 | Lev: 0.5x | Regime: BULL
+  [2024-07-09] STOP NVDA (LONG) @ 129.04 | PnL: -1.33%
+  [2024-07-09] LONG GLW @ 44.44 (eff=44.48) | Score=75 Exec=55 DR=0.65 Z=0.41 | Size: $3,913 | Lev: 0.4x | Regime: BULL
+  [2024-07-09] TARGET GLW (LONG) @ 45.02 | PnL: +0.50%
+  [2024-07-09] LONG ANET @ 368.27 (eff=368.64) | Score=77 Exec=60 DR=0.65 Z=-3.04 | Size: $3,980 | Lev: 0.4x | Regime: BULL
+  [2024-07-10] STOP ANET (LONG) @ 359.58 | PnL: -1.14%
+  [2024-07-10] LONG INTC @ 34.62 (eff=34.66) | Score=69 Exec=52 DR=0.67 Z=0.52 | Size: $3,827 | Lev: 0.4x | Regime: BULL
+  [2024-07-10] STOP INTC (LONG) @ 34.67 | PnL: -0.03%
+  [2024-07-10] LONG FICO @ 1523.42 (eff=1524.95) | Score=69 Exec=52 DR=0.73 Z=1.18 | Size: $3,823 | Lev: 0.4x | Regime: BULL
+  [2024-07-12] TIMEOUT NEM (DIP-BUY) @ 47.58 | PnL: +8.52% | Held 20963 bars
+  [2024-07-12] LONG CFG @ 38.14 (eff=38.18) | Score=74 Exec=55 DR=0.67 Z=0.43 | Size: $5,839 | Lev: 0.6x | Regime: BULL
+  [2024-07-12] STOP CFG (LONG) @ 38.26 | PnL: +0.07%
+  [2024-07-12] LONG PNC @ 168.91 (eff=169.08) | Score=69 Exec=52 DR=0.76 Z=0.84 | Size: $5,849 | Lev: 0.6x | Regime: BULL
+  [2024-07-12] STOP PNC (LONG) @ 169.18 | PnL: -0.03%
+  [2024-07-15] LONG PLTR @ 29.02 (eff=29.05) | Score=73 Exec=52 DR=0.67 Z=1.27 | Size: $5,845 | Lev: 0.6x | Regime: BULL
+  [2024-07-16] STOP PLTR (LONG) @ 27.87 | PnL: -2.53%
+  [2024-07-16] LONG F @ 14.27 (eff=14.28) | Score=70 Exec=55 DR=0.67 Z=0.48 | Size: $5,480 | Lev: 0.6x | Regime: BULL
+  [2024-07-16] STOP F (LONG) @ 14.36 | PnL: +0.23%
+  [2024-07-16] LONG CHTR @ 325.03 (eff=325.36) | Score=67 Exec=52 DR=0.69 Z=1.06 | Size: $5,513 | Lev: 0.6x | Regime: BULL
+  [2024-07-24] MAX-HOLD FICO (LONG) @ 1524.95 | PnL: -0.04% | Held 11 days
+  [2024-07-25] LONG SPXU @ 29.58 (eff=29.61) | Score=72 Exec=52 DR=0.65 Z=1.17 | Size: $3,817 | Lev: 0.4x | Regime: BEAR
+  [2024-07-25] STOP SPXU (LONG) @ 29.29 | PnL: -0.48%
+  [2024-07-26] LONG PSQ @ 42.19 (eff=42.23) | Score=75 Exec=55 DR=0.68 Z=-0.06 | Size: $3,750 | Lev: 0.4x | Regime: BEAR
+  [2024-07-29] TARGET CHTR (LONG) @ 375.80 | PnL: +9.06%
+  [2024-07-29] STOP PSQ (LONG) @ 41.83 | PnL: -0.42%
+  [2024-07-29] LONG SDS @ 23.15 (eff=23.17) | Score=75 Exec=55 DR=0.67 Z=0.20 | Size: $10,121 | Lev: 1.0x | Regime: BEAR
+  [2024-07-29] LONG QID @ 40.47 (eff=40.51) | Score=80 Exec=60 DR=0.71 Z=-0.72 | Size: $355 | Lev: 0.0x | Regime: BEAR
+  [2024-07-30] STOP SDS (LONG) @ 23.22 | PnL: +0.10%
+  [2024-07-30] TARGET QID (LONG) @ 41.25 | PnL: +0.06%
+  [2024-07-31] LONG QID @ 39.85 (eff=39.89) | Score=80 Exec=60 DR=0.67 Z=0.31 | Size: $10,138 | Lev: 1.0x | Regime: BEAR
+  [2024-08-01] TARGET QID (LONG) @ 40.54 | PnL: +1.53%
+  [2024-08-02] LONG QID @ 43.62 (eff=43.66) | Score=75 Exec=55 DR=0.65 Z=0.21 | Size: $8,939 | Lev: 0.9x | Regime: BEAR
+  [2024-08-02] STOP QID (LONG) @ 44.13 | PnL: +0.84%
+  [2024-08-15] LONG FTNT @ 72.97 (eff=73.04) | Score=82 Exec=59 DR=0.33 Z=-2.09 RSI=21.4 | Size: $5,190 | Lev: 0.5x | Regime: BEAR
+  [2024-08-15] TARGET FTNT (LONG) @ 73.47 | PnL: +0.24%
+  [2024-08-21] LONG PLTR @ 32.44 (eff=32.47) | Score=76 Exec=55 DR=0.68 Z=0.43 | Size: $4,919 | Lev: 0.5x | Regime: BULL
+  [2024-08-21] LONG SBUX @ 92.92 (eff=93.01) | Score=81 Exec=60 DR=0.66 Z=0.94 | Size: $5,982 | Lev: 0.6x | Regime: BULL
+  [2024-08-22] STOP PLTR (LONG) @ 32.72 | PnL: +0.31%
+  [2024-08-22] LONG DHI @ 185.07 (eff=185.26) | Score=68 Exec=60 DR=0.70 Z=-1.02 | Size: $4,968 | Lev: 0.5x | Regime: BULL
+  [2024-08-22] STOP DHI (LONG) @ 185.42 | PnL: -0.01%
+  [2024-08-23] STOP SBUX (LONG) @ 93.51 | PnL: +0.25%
+  [2024-08-23] LONG PYPL @ 71.25 (eff=71.32) | Score=67 Exec=50 DR=0.64 Z=-1.42 | Size: $8,647 | Lev: 0.8x | Regime: BULL
+  [2024-08-23] LONG AXON @ 372.90 (eff=373.27) | Score=79 Exec=60 DR=0.66 Z=-1.03 | Size: $2,341 | Lev: 0.2x | Regime: BULL
+  [2024-08-23] STOP PYPL (LONG) @ 71.53 | PnL: +0.15%
+  [2024-08-23] LONG KEYS @ 155.15 (eff=155.31) | Score=79 Exec=60 DR=0.67 Z=-2.31 | Size: $7,778 | Lev: 0.7x | Regime: BULL
+  [2024-08-23] LONG FTNT @ 74.61 (eff=74.69) | Score=71 Exec=52 DR=0.66 Z=1.35 | Size: $893 | Lev: 0.1x | Regime: BULL
+  [2024-08-23] STOP FTNT (LONG) @ 74.72 | PnL: -0.01%
+  [2024-08-23] LONG TGT @ 158.44 (eff=158.60) | Score=81 Exec=60 DR=0.66 Z=-0.48 | Size: $892 | Lev: 0.1x | Regime: BULL
+  [2024-08-27] STOP TGT (LONG) @ 159.01 | PnL: +0.01%
+  [2024-08-27] LONG CVNA @ 157.90 (eff=158.06) | Score=77 Exec=56 DR=0.63 Z=1.48 | Size: $894 | Lev: 0.1x | Regime: BULL
+  [2024-08-27] STOP CVNA (LONG) @ 158.16 | PnL: -0.00%
+  [2024-08-28] LONG CIEN @ 56.51 (eff=56.56) | Score=77 Exec=60 DR=0.73 Z=-2.02 | Size: $894 | Lev: 0.1x | Regime: BULL
+  [2024-08-28] STOP CIEN (LONG) @ 56.73 | PnL: +0.02%
+  [2024-08-28] LONG LUV @ 28.70 (eff=28.73) | Score=79 Exec=60 DR=0.66 Z=-4.21 | Size: $897 | Lev: 0.1x | Regime: BULL
+  [2024-08-28] STOP LUV (LONG) @ 28.38 | PnL: -0.11%
+  [2024-08-28] LONG CLX @ 154.92 (eff=155.07) | Score=77 Exec=60 DR=0.63 Z=-7.62 | Size: $879 | Lev: 0.1x | Regime: BULL
+  [2024-08-28] STOP CLX (LONG) @ 155.09 | PnL: -0.01%
+  [2024-08-29] LONG GL @ 104.86 (eff=104.96) | Score=72 Exec=55 DR=0.69 Z=-0.49 | Size: $878 | Lev: 0.1x | Regime: BULL
+  [2024-08-29] STOP GL (LONG) @ 105.11 | PnL: +0.00%
+  [2024-08-30] LONG MMM @ 133.12 (eff=133.25) | Score=70 Exec=60 DR=0.68 Z=-0.84 | Size: $878 | Lev: 0.1x | Regime: BULL
+  [2024-08-30] TARGET MMM (LONG) @ 134.00 | PnL: +0.04%
+  [2024-08-30] LONG COO @ 105.13 (eff=105.24) | Score=72 Exec=55 DR=0.81 Z=-0.45 | Size: $884 | Lev: 0.1x | Regime: BULL
+  [2024-08-30] TARGET COO (LONG) @ 105.75 | PnL: +0.03%
+  [2024-09-03] LONG RMD @ 246.73 (eff=246.98) | Score=77 Exec=60 DR=0.73 Z=1.43 | Size: $889 | Lev: 0.1x | Regime: BULL
+  [2024-09-09] STOP RMD (LONG) @ 248.07 | PnL: +0.03%
+  [2024-09-09] LONG SOLV @ 67.22 (eff=67.29) | Score=69 Exec=52 DR=0.69 Z=1.46 | Size: $894 | Lev: 0.1x | Regime: BULL
+  [2024-09-09] MAX-HOLD AXON (LONG) @ 373.27 | PnL: -0.02% | Held 11 days
+  [2024-09-09] MAX-HOLD KEYS (LONG) @ 155.31 | PnL: -0.07% | Held 11 days
+  [2024-09-10] STOP SOLV (LONG) @ 67.50 | PnL: +0.02%
+  [2024-09-10] LONG QID @ 41.96 (eff=42.00) | Score=70 Exec=50 DR=0.64 Z=-0.51 | Size: $10,471 | Lev: 1.0x | Regime: BEAR
+  [2024-09-10] STOP QID (LONG) @ 41.43 | PnL: -1.46%
+  [2024-09-11] LONG SDS @ 23.47 (eff=23.49) | Score=72 Exec=52 DR=0.74 Z=1.21 | Size: $10,318 | Lev: 1.0x | Regime: BEAR
+  [2024-09-11] LONG SPXU @ 29.22 (eff=29.25) | Score=72 Exec=52 DR=0.65 Z=0.84 | Size: $454 | Lev: 0.0x | Regime: BEAR
+  [2024-09-11] STOP SDS (LONG) @ 23.21 | PnL: -1.31%
+  [2024-09-11] STOP SPXU (LONG) @ 28.75 | PnL: -0.08%
+  [2024-09-13] LONG APP @ 111.64 (eff=111.75) | Score=73 Exec=56 DR=0.64 Z=1.20 | Size: $9,886 | Lev: 1.0x | Regime: BULL
+  [2024-09-13] LONG NCLH @ 19.34 (eff=19.36) | Score=81 Exec=60 DR=0.66 Z=0.14 | Size: $671 | Lev: 0.1x | Regime: BULL
+  [2024-09-16] TARGET APP (LONG) @ 114.73 | PnL: +2.49%
+  [2024-09-16] STOP NCLH (LONG) @ 19.48 | PnL: +0.03%
+  [2024-09-16] LONG BLDR @ 189.00 (eff=189.19) | Score=74 Exec=52 DR=0.66 Z=1.13 | Size: $10,432 | Lev: 1.0x | Regime: BULL
+  [2024-09-16] STOP BLDR (LONG) @ 188.01 | PnL: -0.73%
+  [2024-09-16] LONG PODD @ 234.65 (eff=234.88) | Score=69 Exec=52 DR=0.69 Z=1.13 | Size: $10,356 | Lev: 1.0x | Regime: BULL
+  [2024-09-17] LONG VST @ 91.52 (eff=91.61) | Score=81 Exec=60 DR=0.66 Z=1.34 | Size: $473 | Lev: 0.0x | Regime: BULL
+  [2024-09-18] STOP VST (LONG) @ 91.42 | PnL: -0.01%
+  [2024-09-18] LONG ORCL @ 164.98 (eff=165.14) | Score=69 Exec=52 DR=0.68 Z=0.51 | Size: $471 | Lev: 0.0x | Regime: BULL
+  [2024-09-18] TARGET ORCL (LONG) @ 166.21 | PnL: +0.02%
+  [2024-09-18] LONG UAL @ 53.30 (eff=53.35) | Score=72 Exec=55 DR=0.65 Z=0.32 | Size: $475 | Lev: 0.0x | Regime: BULL
+  [2024-09-19] STOP UAL (LONG) @ 53.72 | PnL: +0.03%
+  [2024-09-19] LONG APP @ 124.37 (eff=124.49) | Score=75 Exec=60 DR=0.67 Z=-1.09 | Size: $479 | Lev: 0.0x | Regime: BULL
+  [2024-09-20] STOP APP (LONG) @ 124.93 | PnL: +0.01%
+  [2024-09-20] LONG PLTR @ 36.38 (eff=36.42) | Score=69 Exec=52 DR=0.66 Z=1.46 | Size: $481 | Lev: 0.0x | Regime: BULL
+  [2024-09-20] STOP PLTR (LONG) @ 36.41 | PnL: -0.01%
+  [2024-09-20] LONG GEV @ 245.00 (eff=245.24) | Score=77 Exec=60 DR=0.83 Z=-1.09 | Size: $480 | Lev: 0.0x | Regime: BULL
+  [2024-09-20] STOP GEV (LONG) @ 246.39 | PnL: +0.02%
+  [2024-09-23] LONG CEG @ 256.65 (eff=256.91) | Score=77 Exec=60 DR=0.67 Z=-4.75 | Size: $482 | Lev: 0.0x | Regime: BULL
+  [2024-09-23] STOP CEG (LONG) @ 256.66 | PnL: -0.01%
+  [2024-09-23] LONG EME @ 437.43 (eff=437.87) | Score=72 Exec=55 DR=0.65 Z=0.14 | Size: $481 | Lev: 0.0x | Regime: BULL
+  [2024-09-30] MAX-HOLD PODD (LONG) @ 234.88 | PnL: -0.10% | Held 11 days
+  [2024-10-01] LONG DAL @ 49.52 (eff=49.57) | Score=72 Exec=55 DR=0.67 Z=-0.48 | Size: $10,341 | Lev: 1.0x | Regime: BULL
+  [2024-10-01] STOP DAL (LONG) @ 49.86 | PnL: +0.47%
+  [2024-10-01] LONG WYNN @ 97.73 (eff=97.83) | Score=69 Exec=52 DR=0.65 Z=1.35 | Size: $10,400 | Lev: 1.0x | Regime: BULL
+  [2024-10-01] TARGET WYNN (LONG) @ 98.79 | PnL: +0.88%
+  [2024-10-02] LONG NRG @ 92.95 (eff=93.04) | Score=69 Exec=52 DR=0.67 Z=1.38 | Size: $10,492 | Lev: 1.0x | Regime: BULL
+  [2024-10-02] STOP NRG (LONG) @ 93.05 | PnL: -0.09%
+  [2024-10-02] LONG LVS @ 51.94 (eff=51.99) | Score=75 Exec=60 DR=0.64 Z=-1.28 | Size: $10,482 | Lev: 1.0x | Regime: BULL
+  [2024-10-04] STOP LVS (LONG) @ 52.53 | PnL: +0.93%
+  [2024-10-04] LONG CVNA @ 179.88 (eff=180.06) | Score=75 Exec=52 DR=0.65 Z=0.66 | Size: $9,158 | Lev: 0.9x | Regime: BULL
+  [2024-10-04] LONG CIEN @ 66.22 (eff=66.29) | Score=72 Exec=55 DR=0.65 Z=0.31 | Size: $1,526 | Lev: 0.1x | Regime: BULL
+  [2024-10-04] STOP CVNA (LONG) @ 179.66 | PnL: -0.28%
+  [2024-10-04] LONG WYNN @ 105.16 (eff=105.27) | Score=77 Exec=60 DR=0.64 Z=-0.94 | Size: $9,114 | Lev: 0.9x | Regime: BULL
+  [2024-10-04] TARGET CIEN (LONG) @ 66.69 | PnL: +0.07%
+  [2024-10-07] TARGET WYNN (LONG) @ 106.34 | PnL: +0.79%
+  [2024-10-07] LONG ALB @ 103.60 (eff=103.70) | Score=71 Exec=52 DR=0.69 Z=0.92 | Size: $8,577 | Lev: 0.8x | Regime: BULL
+  [2024-10-07] LONG CIEN @ 63.53 (eff=63.59) | Score=77 Exec=60 DR=0.63 Z=-4.50 | Size: $2,200 | Lev: 0.2x | Regime: BULL
+  [2024-10-07] MAX-HOLD EME (LONG) @ 437.87 | PnL: -0.00% | Held 11 days
+  [2024-10-08] STOP ALB (LONG) @ 100.39 | PnL: -2.65%
+  [2024-10-08] LONG GNRC @ 171.78 (eff=171.96) | Score=69 Exec=52 DR=0.71 Z=1.43 | Size: $8,633 | Lev: 0.8x | Regime: BULL
+  [2024-10-10] STOP GNRC (LONG) @ 167.36 | PnL: -2.31%
+  [2024-10-10] LONG NCLH @ 22.91 (eff=22.93) | Score=80 Exec=60 DR=0.28 Z=-2.16 RSI=29.3 | Size: $5,060 | Lev: 0.5x | Regime: CHOP
+  [2024-10-10] TARGET NCLH (LONG) @ 23.09 | PnL: +0.29%
+  [2024-10-11] STOP CIEN (LONG) @ 69.43 | PnL: +1.87%
+  [2024-10-11] LONG CCL @ 20.41 (eff=20.44) | Score=85 Exec=60 DR=0.31 Z=-3.06 RSI=30.2 | Size: $5,175 | Lev: 0.5x | Regime: CHOP
+  [2024-10-15] LONG HOOD @ 26.34 (eff=26.37) | Score=85 Exec=60 DR=0.30 Z=-2.41 RSI=24.8 | Size: $5,175 | Lev: 0.5x | Regime: CHOP
+  [2024-10-15] TARGET HOOD (LONG) @ 26.70 | PnL: +0.59%
+  [2024-10-16] TIMEOUT CCL (DIP-BUY) @ 21.45 | PnL: +2.43% | Held 1390 bars
+  [2024-10-17] LONG CCL @ 21.25 (eff=21.28) | Score=83 Exec=60 DR=0.28 Z=-3.17 RSI=25.3 | Size: $5,331 | Lev: 0.5x | Regime: CHOP
+  [2024-10-17] STOP CCL (LONG) @ 21.34 | PnL: +0.11%
+  [2024-10-18] LONG SNA @ 323.67 (eff=323.99) | Score=83 Exec=60 DR=0.30 Z=-3.44 RSI=20.9 | Size: $5,337 | Lev: 0.5x | Regime: CHOP
+  [2024-10-18] STOP SNA (LONG) @ 323.59 | PnL: -0.11%
+  [2024-10-21] LONG TRV @ 260.43 (eff=260.69) | Score=85 Exec=60 DR=0.24 Z=-3.54 RSI=8.9 | Size: $5,331 | Lev: 0.5x | Regime: CHOP
+  [2024-10-21] TIMEOUT TRV (DIP-BUY) @ 258.79 | PnL: -0.41% | Held 60 bars
+  [2024-10-24] LONG GM @ 53.15 (eff=53.20) | Score=84 Exec=59 DR=0.33 Z=-2.41 RSI=23.0 | Size: $5,309 | Lev: 0.5x | Regime: CHOP
+  [2024-10-25] LONG NTRS @ 101.70 (eff=101.80) | Score=85 Exec=60 DR=0.33 Z=-3.44 RSI=7.5 | Size: $5,309 | Lev: 0.5x | Regime: CHOP
+  [2024-10-25] LONG RJF @ 145.55 (eff=145.70) | Score=83 Exec=60 DR=0.27 Z=-2.14 RSI=25.6 | Size: $604 | Lev: 0.1x | Regime: CHOP
+  [2024-10-25] STOP RJF (LONG) @ 146.00 | PnL: +0.01%
+  [2024-10-25] STOP NTRS (LONG) @ 100.70 | PnL: -0.59%
+  [2024-10-28] LONG UAL @ 76.69 (eff=76.77) | Score=78 Exec=55 DR=0.32 Z=-2.91 RSI=31.8 | Size: $5,278 | Lev: 0.5x | Regime: CHOP
+  [2024-10-28] LONG GEV @ 288.88 (eff=289.17) | Score=85 Exec=60 DR=0.24 Z=-2.62 RSI=34.7 | Size: $542 | Lev: 0.1x | Regime: CHOP
+  [2024-10-28] STOP GEV (LONG) @ 289.79 | PnL: +0.01%
+  [2024-10-28] LONG TSLA @ 265.14 (eff=265.41) | Score=72 Exec=60 DR=0.30 Z=-3.90 RSI=27.7 | Size: $542 | Lev: 0.1x | Regime: CHOP
+  [2024-10-29] TIMEOUT UAL (DIP-BUY) @ 76.01 | PnL: -0.54% | Held 245 bars
+  [2024-10-29] TIMEOUT TSLA (DIP-BUY) @ 260.94 | PnL: -0.09% | Held 237 bars
+  [2024-10-29] LONG TPR @ 48.98 (eff=49.03) | Score=80 Exec=55 DR=0.30 Z=-2.13 RSI=34.7 | Size: $5,245 | Lev: 0.5x | Regime: CHOP
+  [2024-10-29] STOP TPR (LONG) @ 48.83 | PnL: -0.25%
+  [2024-10-30] LONG PLTR @ 43.95 (eff=44.00) | Score=90 Exec=60 DR=0.29 Z=-2.82 RSI=16.5 | Size: $5,231 | Lev: 0.5x | Regime: CHOP
+  [2024-10-31] LONG DLR @ 179.86 (eff=180.04) | Score=77 Exec=60 DR=0.69 Z=-1.26 | Size: $449 | Lev: 0.0x | Regime: BULL
+  [2024-11-06] TIMEOUT PLTR (DIP-BUY) @ 54.03 | PnL: +11.34% | Held 1995 bars
+  [2024-11-06] LONG PLTR @ 54.03 (eff=54.08) | Score=72 Exec=52 DR=0.69 Z=0.84 | Size: $5,908 | Lev: 0.5x | Regime: BULL
+  [2024-11-06] LONG WAT @ 380.37 (eff=380.75) | Score=73 Exec=56 DR=0.65 Z=1.27 | Size: $1,103 | Lev: 0.1x | Regime: BULL
+  [2024-11-06] TARGET WAT (LONG) @ 385.52 | PnL: +0.11%
+  [2024-11-06] LONG IP @ 58.50 (eff=58.56) | Score=75 Exec=60 DR=0.69 Z=-1.44 | Size: $1,122 | Lev: 0.1x | Regime: BULL
+  [2024-11-07] STOP PLTR (LONG) @ 54.13 | PnL: -0.01%
+  [2024-11-07] LONG PAYC @ 228.62 (eff=228.85) | Score=74 Exec=59 DR=0.63 Z=0.33 | Size: $5,185 | Lev: 0.4x | Regime: BULL
+  [2024-11-11] STOP PAYC (LONG) @ 230.40 | PnL: +0.26%
+  [2024-11-11] LONG AXON @ 616.70 (eff=617.31) | Score=69 Exec=52 DR=0.70 Z=1.14 | Size: $5,874 | Lev: 0.5x | Regime: BULL
+  [2024-11-12] STOP AXON (LONG) @ 602.63 | PnL: -1.24%
+  [2024-11-12] LONG COIN @ 317.18 (eff=317.50) | Score=77 Exec=60 DR=0.66 Z=-1.10 | Size: $3,110 | Lev: 0.3x | Regime: BULL
+  [2024-11-13] STOP COIN (LONG) @ 298.21 | PnL: -1.66%
+  [2024-11-14] LONG APP @ 291.01 (eff=291.30) | Score=77 Exec=60 DR=0.65 Z=-0.73 | Size: $3,203 | Lev: 0.3x | Regime: BULL
+  [2024-11-14] MAX-HOLD DLR (LONG) @ 180.04 | PnL: -0.00% | Held 11 days
+  [2024-11-15] LONG UAL @ 91.60 (eff=91.69) | Score=72 Exec=55 DR=0.66 Z=0.09 | Size: $2,690 | Lev: 0.2x | Regime: BULL
+  [2024-11-18] STOP APP (LONG) @ 297.51 | PnL: +0.57%
+  [2024-11-18] LONG DIS @ 114.83 (eff=114.95) | Score=69 Exec=52 DR=0.66 Z=1.11 | Size: $3,301 | Lev: 0.3x | Regime: BULL
+  [2024-11-19] TARGET UAL (LONG) @ 93.10 | PnL: +0.34%
+  [2024-11-19] LONG TSLA @ 343.55 (eff=343.89) | Score=73 Exec=52 DR=0.67 Z=1.33 | Size: $2,748 | Lev: 0.2x | Regime: BULL
+  [2024-11-20] MAX-HOLD IP (LONG) @ 58.56 | PnL: -0.01% | Held 11 days
+  [2024-11-21] LONG WSM @ 172.06 (eff=172.24) | Score=71 Exec=52 DR=0.67 Z=1.15 | Size: $1,120 | Lev: 0.1x | Regime: BULL
+  [2024-11-25] STOP WSM (LONG) @ 179.29 | PnL: +0.39%
+  [2024-11-25] LONG VST @ 155.39 (eff=155.55) | Score=77 Exec=60 DR=0.65 Z=-3.11 | Size: $1,187 | Lev: 0.1x | Regime: BULL
+  [2024-11-25] STOP VST (LONG) @ 155.30 | PnL: -0.03%
+  [2024-11-26] LONG UAL @ 99.10 (eff=99.20) | Score=66 Exec=56 DR=0.65 Z=-2.13 | Size: $1,182 | Lev: 0.1x | Regime: BULL
+  [2024-11-27] STOP UAL (LONG) @ 95.63 | PnL: -0.38%
+  [2024-11-27] LONG DDOG @ 151.68 (eff=151.83) | Score=77 Exec=60 DR=0.68 Z=-2.87 | Size: $1,117 | Lev: 0.1x | Regime: BULL
+  [2024-11-27] STOP DDOG (LONG) @ 151.55 | PnL: -0.03%
+  [2024-11-29] LONG TPR @ 62.05 (eff=62.11) | Score=69 Exec=52 DR=0.72 Z=1.32 | Size: $1,112 | Lev: 0.1x | Regime: BULL
+  [2024-11-29] STOP TPR (LONG) @ 62.28 | PnL: +0.02%
+  [2024-12-02] LONG HOOD @ 37.98 (eff=38.01) | Score=75 Exec=56 DR=0.63 Z=-2.44 | Size: $1,115 | Lev: 0.1x | Regime: BULL
+  [2024-12-03] STOP TSLA (LONG) @ 350.45 | PnL: +0.43%
+  [2024-12-03] STOP HOOD (LONG) @ 38.05 | PnL: +0.00%
+  [2024-12-03] MAX-HOLD DIS (LONG) @ 114.95 | PnL: -0.03% | Held 11 days
+  [2024-12-04] LONG SMCI @ 41.33 (eff=41.37) | Score=75 Exec=52 DR=0.67 Z=1.02 | Size: $2,300 | Lev: 0.2x | Regime: BULL
+  [2024-12-04] STOP SMCI (LONG) @ 41.11 | PnL: -0.15%
+  [2024-12-05] LONG XYZ @ 97.77 (eff=97.87) | Score=80 Exec=60 DR=0.65 Z=0.27 | Size: $7,209 | Lev: 0.6x | Regime: BULL
+  [2024-12-05] STOP XYZ (LONG) @ 97.36 | PnL: -0.39%
+  [2024-12-06] LONG AXON @ 696.76 (eff=697.46) | Score=69 Exec=52 DR=0.70 Z=1.23 | Size: $7,142 | Lev: 0.6x | Regime: BULL
+  [2024-12-06] STOP AXON (LONG) @ 687.17 | PnL: -0.98%
+  [2024-12-09] LONG LULU @ 413.53 (eff=413.94) | Score=72 Exec=55 DR=0.68 Z=0.48 | Size: $6,973 | Lev: 0.6x | Regime: BULL
+  [2024-12-10] STOP LULU (LONG) @ 397.21 | PnL: -2.55%
+  [2024-12-11] LONG PLTR @ 70.46 (eff=70.53) | Score=75 Exec=52 DR=0.65 Z=1.32 | Size: $6,540 | Lev: 0.6x | Regime: BULL
+  [2024-12-11] STOP PLTR (LONG) @ 71.39 | PnL: +0.67%
+  [2024-12-12] TIMEOUT GOOG (DIP-BUY) @ 195.66 | PnL: +7.90% | Held 65368 bars
+  [2024-12-12] LONG COIN @ 314.76 (eff=315.07) | Score=78 Exec=60 DR=0.64 Z=-2.88 | Size: $6,043 | Lev: 0.5x | Regime: BULL
+  [2024-12-12] STOP COIN (LONG) @ 315.05 | PnL: -0.06%
+  [2024-12-13] LONG APP @ 331.41 (eff=331.74) | Score=73 Exec=55 DR=0.67 Z=0.49 | Size: $5,279 | Lev: 0.4x | Regime: BULL
+  [2024-12-16] STOP APP (LONG) @ 340.54 | PnL: +1.14%
+  [2024-12-16] LONG AVGO @ 238.71 (eff=238.94) | Score=77 Exec=60 DR=0.67 Z=-1.15 | Size: $11,586 | Lev: 1.0x | Regime: BULL
+  [2024-12-16] LONG CIEN @ 90.94 (eff=91.03) | Score=69 Exec=52 DR=0.68 Z=1.25 | Size: $1,077 | Lev: 0.1x | Regime: BULL
+  [2024-12-16] TARGET AVGO (LONG) @ 251.42 | PnL: +4.95%
+  [2024-12-17] STOP CIEN (LONG) @ 88.31 | PnL: -0.28%
+  [2024-12-18] LONG DECK @ 209.07 (eff=209.28) | Score=69 Exec=52 DR=0.66 Z=0.95 | Size: $12,540 | Lev: 1.0x | Regime: BULL
+  [2024-12-18] STOP DECK (LONG) @ 208.60 | PnL: -0.42%
+  [2024-12-19] LONG JBL @ 139.98 (eff=140.12) | Score=75 Exec=55 DR=0.67 Z=-0.03 | Size: $12,487 | Lev: 1.0x | Regime: BULL
+  [2024-12-23] TARGET JBL (LONG) @ 145.69 | PnL: +3.87%
+  [2024-12-27] LONG SPXU @ 21.72 (eff=21.74) | Score=72 Exec=52 DR=0.71 Z=1.04 | Size: $12,970 | Lev: 1.0x | Regime: BEAR
+  [2024-12-27] LONG QID @ 31.36 (eff=31.39) | Score=70 Exec=50 DR=0.64 Z=-1.19 | Size: $1,176 | Lev: 0.1x | Regime: BEAR
+  [2024-12-27] STOP SPXU (LONG) @ 21.52 | PnL: -1.12%
+  [2024-12-30] TARGET QID (LONG) @ 32.44 | PnL: +0.29%
+  [2024-12-30] LONG SDS @ 19.66 (eff=19.68) | Score=70 Exec=50 DR=0.65 Z=-0.81 | Size: $12,863 | Lev: 1.0x | Regime: BEAR
+  [2024-12-30] STOP SDS (LONG) @ 19.50 | PnL: -1.01%
+  [FINAL] EOD CLOSE GM (LONG) @ 53.20 | PnL: -0.05%
 
 ======================================================================
 BACKTEST RESULTS
 ======================================================================
 
-Total Trades: 55
-Wins: 27 | Losses: 28 | Win Rate: 49.09%
-Avg Return Per Trade: 0.1336%
-Profit Factor: 1.61
-Gross Profit: 19.33 | Gross Loss: 11.98
+Total Trades: 206
+Wins: 95 | Losses: 111 | Win Rate: 46.12%
+Avg Return Per Trade: 0.1391%
+Profit Factor: 1.37
+Gross Profit: 106.68 | Gross Loss: 78.02
 
 Breakdown:
-  Bull Regime: 48 trades | Win Rate: 47.9%
-  Bear Regime: 7 trades | Win Rate: 57.1%
+  Bull Regime: 166 trades | Win Rate: 47.0%
+  Bear Regime: 20 trades | Win Rate: 45.0%
 
 Account Simulation (Simple Compounding):
-Final Equity: $10,747.31 | Total Return: +7.47%
-Max Drawdown: -3.79%
+Final Equity: $12,727.61 | Total Return: +27.28%
+Max Drawdown: -17.31%
 
 [V1 CSV MATCH FORMAT]
-2026-03-11 23:34:38,MTF Strict Execution (Momentum Breakout),1.61,49.09,55,0.1336,0.1246,0.1954,0.0000,0.0000,19.33,11.98
+2026-03-24 20:51:13,MTF Strict Execution (Momentum Breakout),1.37,46.12,206,0.1391,0.1645,0.4366,0.0000,0.0000,106.68,78.02

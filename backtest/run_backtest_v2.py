@@ -17,7 +17,6 @@ import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta, timezone
 import json
-import traceback
 import logging
 
 log = logging.getLogger(__name__)
@@ -49,6 +48,22 @@ from utils.quant_engine import (
 LOG_FILE = os.path.join(os.path.dirname(__file__), "results_v2.log")
 
 
+def _et_hour_minute(ts) -> tuple[int, int]:
+    """
+    Return (hour, minute) in US/Eastern time.
+    Handles both UTC-aware timestamps (from Alpaca parquet) and naive timestamps.
+    The Alpaca SDK returns UTC-aware datetimes; if stored with timezone info intact,
+    ts.hour would be UTC (e.g. 14 for 9:30 AM ET), breaking naive hour comparisons.
+    """
+    if getattr(ts, 'tzinfo', None) is not None:
+        try:
+            import pytz
+            ts = ts.astimezone(pytz.timezone('America/New_York'))
+        except Exception:
+            pass  # Fall back to raw hour if pytz unavailable
+    return ts.hour, ts.minute
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # ENTRY LOGIC
 # ──────────────────────────────────────────────────────────────────────────────
@@ -57,43 +72,39 @@ def load_strategy_params(filepath: str) -> dict:
     """
     Load dynamic strategy parameters from a CSV-like txt file.
     Format expected:
-    long_hybrid,long_exec,long_vwap,short_hybrid,short_exec,short_vwap,long_delta_min,short_delta_max,long_bounce_pct,short_bounce_pct,stop_r,target_r
-    Input: 5.0,33,0.0,45.0,39,0.0,0.58,0.43,0.0,0.0,1.5,3.5
+    mom_vwap_z_min,mom_vol_ratio_min,mom_delta_min,rev_vwap_z_max,rev_vol_spike_min,stop_r,target_r,risk_per_trade
+    Input: 0.3,1.3,0.58,-2.5,2.0,1.5,2.0,0.05
     """
     default_params = {
-        'long_hybrid': 56.0,
-        'long_exec': 36.0,
-        'long_vwap': 2.5,
-        'short_hybrid': 45.0,
-        'short_exec': 34.0,
-        'short_vwap': -2.5,
-        'long_delta_min': 0.55,
-        'short_delta_max': 0.40,
-        'long_bounce_pct': 0.0,
-        'short_bounce_pct': 0.0,
+        'mom_vwap_z_min': 0.3,
+        'mom_vol_ratio_min': 1.3,
+        'mom_delta_min': 0.58,
+        'rev_vwap_z_max': -2.5,
+        'rev_vol_spike_min': 2.0,
         'stop_r': 1.5,
-        'target_r': 3.0,
+        'target_r': 2.0,
+        'risk_per_trade': 0.05,
     }
-    
+
     if not filepath or not os.path.exists(filepath):
         return default_params
-        
+
     try:
         with open(filepath, 'r') as f:
             lines = [line.strip() for line in f if line.strip()]
-            
+
         if len(lines) >= 2:
             keys = [k.strip() for k in lines[0].split(',')]
             val_line = lines[1]
             if val_line.lower().startswith("input:"):
                 val_line = val_line.replace("Input:", "").replace("input:", "").strip()
-            
+
             vals = [float(v.strip()) for v in val_line.split(',')]
-            
+
             for k, v in zip(keys, vals):
                 if k in default_params:
                     default_params[k] = v
-        
+
         print(f"Loaded params from {filepath}: {default_params}")
         return default_params
     except Exception as e:
@@ -101,115 +112,95 @@ def load_strategy_params(filepath: str) -> dict:
         return default_params
 
 
-def evaluate_bull_entry(quant: dict, trend_score: float, sparm: dict) -> tuple[bool, str]:
+def evaluate_momentum_entry(quant: dict, trend_score: float, sparm: dict) -> tuple[bool, str]:
     """
-    MTF Strict Long entry conditions matching V1 'MTF Strict Execution (Momentum Breakout)':
-      Best params from CSV: long_hybrid=56, long_exec=36, long_delta_min=0.57
-    
-    IMPORTANT: trend_score here is already scaled to 0-40 range (raw_score * 0.40),
-    matching V1 mock_technical_analyst.py line 67:
-        trend_score = round(raw_classic_score * 0.40, 1)
-    Then in V1: hybrid_score = round(trend_score + exec_score)
-    DO NOT multiply trend_score by 0.40 again.
+    True Momentum: VWAP breakout with volume expansion and buy-side dominance.
+    Requires price ABOVE VWAP (trend continuation), not below.
+
+    Conditions (all must be true):
+      1. vwap_zscore >= mom_vwap_z_min  (price above VWAP)
+      2. vwap_zscore <= 2.5             (not extremely overbought)
+      3. volume_ratio >= mom_vol_ratio_min  (volume expanding vs 20-bar SMA)
+      4. delta_ratio >= mom_delta_min   (buy-side dominance)
+      5. trend_score >= 22.4            (daily trend alignment; 56/100 * 0.40 on 0-40 scale)
     """
-    # Compute exec_score from quant metrics (same logic as V1 mock_technical_analyst.py)
-    exec_score = 30
     z = quant.get('vwap_zscore', 0)
-    if z < -2.5: exec_score += 20
-    elif z < -1.5: exec_score += 12
-    elif z < -0.5: exec_score += 6
-    elif z > 2.5: exec_score -= 20
-    elif z > 1.5: exec_score -= 10
-    elif z > 0.5: exec_score -= 3
-    
+    vol_ratio = quant.get('volume_ratio', 1.0)
     dr = quant.get('delta_ratio', 0.5)
-    if dr > 0.65: exec_score += 25
-    elif dr > 0.55: exec_score += 14
-    elif dr < 0.35: exec_score -= 25
-    elif dr < 0.45: exec_score -= 12
-    
-    if quant.get('smart_bounce'):
-        exec_score += 15
-    
-    exec_score = max(0, min(60, exec_score))
-    
-    # Hybrid score: V1 formula is trend_score (already 40% of raw) + exec_score
-    # trend_score is in 0-40 range, exec_score in 0-60 range -> max hybrid = 100
-    hybrid_score = round(trend_score + exec_score)
-    hybrid_score = max(0, min(100, hybrid_score))
-    
-    # MTF Gate (Removed per user request)
-    mtf_total_pos = quant.get('mtf_total_pos', 0)
-    
-    # Dynamic MTF Strict Execution:
-    # Requires hybrid_score >= long_hybrid
-    # Requires exec_score >= long_exec
-    # Requires delta_ratio >= long_delta_min
-    # Requires vwap_zscore <= long_vwap
-    # Optional bounce pct requirement if long_bounce_pct > 0
-    last_buy_pct = quant.get('last_bar_buy_pct', 0.5)
-    
+
+    # trend_score is on 0-40 scale. 56 on the 0-100 raw scale = 22.4 here.
+    min_trend = 22.4
+
     entry = (
-        hybrid_score >= sparm['long_hybrid'] and 
-        exec_score >= sparm['long_exec'] and 
-        dr >= sparm['long_delta_min'] and 
-        z <= sparm['long_vwap']
+        z >= sparm['mom_vwap_z_min'] and           # price above VWAP
+        z <= 2.5 and                                # not extremely overbought
+        vol_ratio >= sparm['mom_vol_ratio_min'] and # volume expanding vs 20-bar SMA
+        dr >= sparm['mom_delta_min'] and            # buy-side dominance
+        trend_score >= min_trend                     # daily trend alignment
     )
-    
-    if sparm['long_bounce_pct'] > 0.0:
-        entry = entry and (last_buy_pct >= sparm['long_bounce_pct'])
-    
-    return entry, f"Score={hybrid_score} Exec={exec_score} DR={dr:.2f} Z={z:.2f}"
+
+    reason = f"MOM Z={z:.2f} VR={vol_ratio:.1f} DR={dr:.2f} TS={trend_score:.1f}"
+    return entry, reason
 
 
-def evaluate_dip_buy_entry(quant: dict, trend_score: float, sparm: dict) -> tuple[bool, str]:
+def evaluate_mean_reversion_entry(quant: dict, trend_score: float, sparm: dict) -> tuple[bool, str]:
     """
-    Mean Reversion Long entry (buy the dip) on standard stocks during bear/chop regimes.
-    We want to buy when they are heavily oversold and selling pressure is exhausted.
-    Utilizes the symmetric 'short_' parameter bounds to hunt absolute market bottoms.
+    Confirmed Capitulation + Reversal Bar.
+    Requires deep VWAP extension, RSI oversold, volume SPIKE, and smart_bounce.
+
+    Conditions (all must be true):
+      1. vwap_zscore <= rev_vwap_z_max  (deep below VWAP)
+      2. rsi_14 < 32                    (genuinely oversold)
+      3. volume_ratio >= rev_vol_spike_min  (capitulation volume spike)
+      4. smart_bounce == True           (reversal bar: buy_frac > 0.75 AND vol > 1.5x SMA)
+      5. delta_ratio <= 0.38            (selling pressure over 20 bars)
+      6. trend_score >= 8.0             (not in total structural freefall; 20/100 * 0.40)
     """
-    exec_score = 30
-    
-    # 1. Require extreme DOWNWARD extension (Oversold Dip)
     z = quant.get('vwap_zscore', 0)
-    if z < -2.5: exec_score += 20
-    elif z < -2.0: exec_score += 12
-    elif z < -1.5: exec_score += 6
-    # Penalize if it's already pumping too much before entry
-    elif z > 1.0: exec_score -= 20
-    
-    # 2. RSI Oversold Check
-    rsi = quant.get('rsi_14', 50)
-    if rsi < 25: exec_score += 15
-    elif rsi < 30: exec_score += 10
-    
-    # 3. Delta Ratio (Wait for intense selling pressure to climax)
+    rsi = quant.get('rsi_14', 50.0)
+    vol_ratio = quant.get('volume_ratio', 1.0)
+    smart_bounce = quant.get('smart_bounce', False)
     dr = quant.get('delta_ratio', 0.5)
-    if dr < 0.35: exec_score += 15
-    elif dr < 0.45: exec_score += 10
-    elif dr > 0.60: exec_score -= 20
-    
-    exec_score = max(0, min(60, exec_score))
-    
-    # Severe systemic drawdowns yield low trend scores, so invert to reward crashing stocks
-    bear_trend = max(0.0, 40.0 - trend_score)
-    hybrid_score = round(bear_trend + exec_score)
-    hybrid_score = max(0, min(100, hybrid_score))
-    
-    # Relax thresholds slightly so Optuna doesn't choke out all trades
-    min_hybrid = max(45, sparm['short_hybrid'] - 12)  
-    min_exec = max(30, sparm['short_exec'] - 10)
-    
-    short_vwap_thresh = abs(sparm['short_vwap'])
-    
+
+    # trend_score floor: 20 on 0-100 scale = 8.0 on 0-40 scale
+    min_trend = 8.0
+
     entry = (
-        hybrid_score >= min_hybrid and 
-        exec_score >= min_exec and 
-        dr <= sparm['short_delta_max'] and 
-        z <= -short_vwap_thresh
+        z <= sparm['rev_vwap_z_max'] and              # deep below VWAP
+        rsi < 32.0 and                                 # genuinely oversold
+        vol_ratio >= sparm['rev_vol_spike_min'] and    # capitulation volume spike
+        smart_bounce and                                # reversal bar: buyers stepping in
+        dr <= 0.38 and                                  # selling pressure over 20 bars
+        trend_score >= min_trend                        # not in total structural freefall
     )
-    
-    return entry, f"Score={hybrid_score} Exec={exec_score} DR={dr:.2f} Z={z:.2f} RSI={rsi:.1f}"
+
+    reason = f"REV Z={z:.2f} RSI={rsi:.1f} VR={vol_ratio:.1f} SB={smart_bounce} DR={dr:.2f}"
+    return entry, reason
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# INTRADAY REGIME DETECTION
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _intraday_regime(spy_bars_so_far) -> str:
+    """
+    Fast intraday regime: SPY EMA(20) check on 5-minute bars.
+    Used to scale position size, not to hard-switch strategies.
+    - Bull: SPY above 20-bar EMA
+    - Bear: SPY below 20-bar EMA AND 10-bar ROC < -0.3%
+    - Chop: everything else
+    """
+    if spy_bars_so_far is None or len(spy_bars_so_far) < 20:
+        return 'chop'
+    spy_close = float(spy_bars_so_far['close'].iloc[-1])
+    spy_ema20 = float(spy_bars_so_far['close'].ewm(span=20, adjust=False).mean().iloc[-1])
+    if spy_close > spy_ema20:
+        return 'bull'
+    if len(spy_bars_so_far) >= 10:
+        spy_roc = spy_close / float(spy_bars_so_far['close'].iloc[-10]) - 1.0
+        if spy_roc < -0.003:
+            return 'bear'
+    return 'chop'
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -228,8 +219,9 @@ def manage_position(pos: dict, current_price: float, current_time, params: dict,
     target_r = params.get('target_r', 3.0)  
     leverage = pos.get('leverage', 1.0)
     
-    is_morning_lock = current_time.hour == 9 or (current_time.hour == 10 and current_time.minute <= 30)
-    circuit_breaker_loss_limit = -4.0
+    _ct_hour, _ct_min = _et_hour_minute(current_time)
+    is_morning_lock = _ct_hour == 9 or (_ct_hour == 10 and _ct_min <= 30)
+    circuit_breaker_loss_limit = -2.0 * leverage  # Scale with leverage, not fixed -4%
     
     dir_mult = 1.0 if is_long else -1.0
     open_pnl = ((current_price - entry_price) / entry_price * dir_mult) * 100 * leverage
@@ -242,7 +234,18 @@ def manage_position(pos: dict, current_price: float, current_time, params: dict,
         return False, '', 0.0
 
     # --- DYNAMIC MTF TSL LOGIC ---
-    if current_mtf_tsl is not None and not np.isnan(current_mtf_tsl):
+    # Only engage trailing stop after trade has moved >= 1× ATR in profit.
+    # Without this gate, the 5m-based TSL (2× ATR_5m ≈ 0.6%) immediately
+    # overrides the wider daily-ATR stop (≈ 0.75-0.9%), causing constant
+    # same-bar stop-outs with tiny losses (30% WR → negative EV).
+    trail_threshold = atr  # 1× ATR_5m in the right direction
+    if is_long:
+        unrealized_move = current_price - entry_price
+    else:
+        unrealized_move = entry_price - current_price
+    trade_in_profit = unrealized_move >= trail_threshold
+
+    if trade_in_profit and current_mtf_tsl is not None and not np.isnan(current_mtf_tsl):
         if is_long:
             if current_mtf_tsl > pos['stop']:
                 pos['stop'] = current_mtf_tsl
@@ -281,7 +284,9 @@ def run_backtest_v2(
     verbose: bool = True,
     always_long: bool = False,
     params: dict = None,
-    sparm: dict = None
+    sparm: dict = None,
+    retrain_interval_days: int = 21,
+    regime_dwell_days: int = 3,
 ) -> dict:
     """
     Run the complete V2 3-layer backtest.
@@ -295,11 +300,18 @@ def run_backtest_v2(
         
     if params is None:
         params = {
-            'stop_r': sparm.get('stop_r', 1.5),      # ATR multiplier for stop
-            'target_r': sparm.get('target_r', 3.0),    # ATR multiplier for target
-            'risk_per_trade': 0.05,  # 5% risk per trade
+            'stop_r': sparm.get('stop_r', 1.5),
+            'target_r': sparm.get('target_r', 2.0),
+            'risk_per_trade': 0.05,          # base risk fraction per trade
+            'target_trade_vol': 2.0,         # target std of per-trade returns (%) for heat scaling
+            'max_total_leverage': 1.5,       # total deployed capital / equity cap
             'max_positions': 5,
-            'max_hold_days': 0,      # 0 = strictly intraday (force close at EOD)
+            'max_hold_trading_days': 10,     # EOD force-close after N trading days (0 = off)
+            'ticker_cooldown_days': 3,       # days a stopped ticker is blacklisted after normal stop
+            'loss_cooldown_threshold': -1.5, # % PnL below which extended cooldown applies
+            'ticker_cooldown_extended_days': 10,  # extended blacklist days for large losses
+            'slippage_pct': 0.0003,          # 0.03% per leg (bid-ask half-spread for liquid stocks)
+            'commission_pct': 0.0,           # Alpaca: $0 commissions; SEC/FINRA fees negligible (<0.003%)
         }
     
     log_lines = []
@@ -327,7 +339,9 @@ def run_backtest_v2(
         end_date=end_date,
         top_n=top_n,
         fetch_5m=fetch_5m,
-        verbose=verbose
+        verbose=verbose,
+        retrain_interval_days=retrain_interval_days,
+        regime_dwell_days=regime_dwell_days,
     )
     
     if not daily_snapshots:
@@ -341,13 +355,15 @@ def run_backtest_v2(
     trade_history = []
     equity = 10000.0  # Starting capital
     equity_curve = []
-    
+    ticker_cooldown: dict = {}  # ticker → day_idx when cooldown expires (after stop-outs)
+
     for day_idx, snapshot in enumerate(daily_snapshots):
         trade_date = snapshot['date']
         regime = snapshot['regime']
         top_picks = snapshot['top_tickers']
         intraday_data = snapshot.get('intraday_data', {})
-        daily_stopped_tickers = set()  # Anti-revenge rule
+        daily_stopped_tickers = set()   # Tickers stopped out today — no re-entry
+        daily_targeted_tickers = set()  # Tickers that hit target today — cool off, no re-entry
         
         if not intraday_data:
             continue
@@ -382,6 +398,7 @@ def run_backtest_v2(
         # Daily trend scores (computed once per day from daily data)
         # Uses the exact same production compute_trend_score (RSI+MACD+EMA+BB+Vol)
         daily_trend_scores = {}
+        daily_atr_pcts = {}  # Daily ATR as fraction of price — used for position sizing & stop floor
         for pick in top_picks:
             ticker = pick['ticker']
             if ticker in all_tickers:
@@ -389,7 +406,7 @@ def run_backtest_v2(
                 # Shift slice back one day to prevent forward-looking data leakage
                 slice_end = trade_date - pd.Timedelta(days=1)
                 daily_slice = tdf.loc[:slice_end]
-                
+
                 if len(daily_slice) >= 26:
                     closes_list = daily_slice['close'].tolist()[-60:]
                     volumes_list = daily_slice['volume'].tolist()[-60:] if 'volume' in daily_slice.columns else None
@@ -399,9 +416,76 @@ def run_backtest_v2(
                     raw_trend = classic['score']  # 0-100
                     trend_score = round(raw_trend * 0.40, 1)  # Scale to 0-40, matching V1
                     daily_trend_scores[ticker] = trend_score
+                    # Compute daily ATR for position sizing (reuse existing compute_atr)
+                    if highs_list and lows_list and len(closes_list) >= 15:
+                        from utils.indicators import compute_atr
+                        daily_atr_val = compute_atr(highs_list, lows_list, closes_list, period=14)
+                        if daily_atr_val > 0 and closes_list[-1] > 0:
+                            daily_atr_pcts[ticker] = max(daily_atr_val / closes_list[-1], 0.005)
                 else:
                     daily_trend_scores[ticker] = 20.0
-        
+
+        # ── SPY Market Context: compute once per day, no look-ahead ──
+        # spy_trending_down: blocks dip-buy entries in sustained downtrends.
+        # spy_trending_up:   blocks inverse ETF entries in sustained uptrends.
+        #   Symmetric guards — dip-buys need a rising context; inverse ETFs need a falling one.
+        spy_trending_down = False  # default: allow dip-buy
+        spy_trending_up   = False  # default: allow inverse ETF
+        SPY_TICKER = 'SPY'
+        if SPY_TICKER in all_tickers:
+            spy_slice_end = trade_date - pd.Timedelta(days=1)
+            spy_daily = all_tickers[SPY_TICKER].loc[:spy_slice_end]['close']
+            if len(spy_daily) >= 22:
+                spy_ma20  = spy_daily.iloc[-20:].mean()
+                spy_close = spy_daily.iloc[-1]
+                spy_roc10 = (spy_close / spy_daily.iloc[-11] - 1.0) if len(spy_daily) >= 12 else 0.0
+                spy_trending_down = (spy_close < spy_ma20) and (spy_roc10 < -0.01)
+                spy_trending_up   = (spy_close > spy_ma20) and (spy_roc10 >  0.01)
+
+        # ── Daily EMA alignment for dip-buy quality filter ──────────────────
+        # Only buy dips on stocks that are in a daily uptrend (EMA20 > EMA50).
+        # If the stock has been downtrending for weeks, an intraday dip is a
+        # continuation, not a mean-reversion opportunity.
+        daily_ema_uptrend = {}
+        for pick in top_picks:
+            tkr = pick['ticker']
+            if tkr in all_tickers:
+                tdf_daily = all_tickers[tkr]
+                slice_end = trade_date - pd.Timedelta(days=1)
+                closes_daily = tdf_daily.loc[:slice_end]['close']
+                if len(closes_daily) >= 50:
+                    ema20 = float(closes_daily.ewm(span=20, adjust=False).mean().iloc[-1])
+                    ema50 = float(closes_daily.ewm(span=50, adjust=False).mean().iloc[-1])
+                    daily_ema_uptrend[tkr] = ema20 > ema50
+                else:
+                    daily_ema_uptrend[tkr] = True  # insufficient history → assume uptrend
+
+        # ── Precompute full-day quant metrics (performance) ──────────────────
+        # precompute_quant_metrics_for_ticker + precompute_mtf_tsl_for_ticker are
+        # O(n) but called per-bar × per-candidate = O(n²) total.
+        # Running them ONCE per day per ticker then slicing is O(n), ~10× faster.
+        # No look-ahead: all indicators are causal (EWM/cumsum from bar 0 forward).
+        all_eval_tickers = (
+            {p['ticker'] for p in top_picks}
+            | {p['ticker'] for p in positions}
+            | ({SPY_TICKER})
+        )
+        if regime in ('bear', 'chop'):
+            all_eval_tickers.update(INVERSE_ETFS[:5])
+        ticker_day_metrics: dict = {}
+        for eval_tkr in all_eval_tickers:
+            if eval_tkr not in intraday_data or intraday_data[eval_tkr] is None:
+                continue
+            full_bars = intraday_data[eval_tkr]
+            if len(full_bars) == 0:
+                continue
+            try:
+                df_p = precompute_quant_metrics_for_ticker(full_bars)
+                df_p = precompute_mtf_tsl_for_ticker(df_p)
+                ticker_day_metrics[eval_tkr] = df_p
+            except Exception:
+                pass
+
         # Step through 5m candles
         for t_idx, ts in enumerate(execution_times):
             # 1. Manage existing positions
@@ -412,28 +496,114 @@ def run_backtest_v2(
                 bars = intraday_data[ticker]
                 if bars is None or len(bars) == 0:
                     continue
-                
+
                 # Get current price at this timestamp
                 bars_so_far = bars.loc[:ts]
                 if len(bars_so_far) == 0:
                     continue
-                
+
                 curr_price = float(bars_so_far['close'].iloc[-1])
-                
-                try:
-                    current_tsl = float(bars_so_far['mtf_tsl'].iloc[-1])
-                except (KeyError, IndexError):
-                    current_tsl = None
-                
+
+                # Use precomputed TSL (column is 'tsl_1', not 'mtf_tsl')
+                current_tsl = None
+                if ticker in ticker_day_metrics:
+                    try:
+                        dm_at_ts = ticker_day_metrics[ticker].loc[:ts]
+                        if len(dm_at_ts) > 0 and 'tsl_1' in dm_at_ts.columns:
+                            current_tsl = float(dm_at_ts['tsl_1'].iloc[-1])
+                    except Exception:
+                        pass
+
+                # Mean reversion exits: VWAP reversion target + 30-bar time stop
+                if pos.get('strategy_type') == 'mean_reversion':
+                    # VWAP reversion target: exit when price returns near VWAP
+                    if ticker in ticker_day_metrics:
+                        try:
+                            dm_slice = ticker_day_metrics[ticker].loc[:ts]
+                            if len(dm_slice) > 0 and 'vwap_zscore' in dm_slice.columns:
+                                current_z = float(dm_slice['vwap_zscore'].iloc[-1])
+                                if current_z >= -0.5:
+                                    is_long  = pos['side'] == 'long'
+                                    lev      = pos.get('leverage', 1.0)
+                                    slip_pct = params.get('slippage_pct', 0.0)
+                                    comm_pct = params.get('commission_pct', 0.0)
+                                    eff_exit_rv = curr_price * (1.0 - slip_pct) if is_long else curr_price * (1.0 + slip_pct)
+                                    pnl_rv = ((eff_exit_rv - pos['entry_price']) / pos['entry_price'] * (1 if is_long else -1)) * 100 * lev
+                                    entry_equity_rv = pos['position_dollars'] / lev
+                                    equity += (pnl_rv / 100.0) * entry_equity_rv
+                                    if comm_pct > 0.0:
+                                        equity -= entry_equity_rv * comm_pct
+                                    log(f"  [{day_str}] VWAP-REVERT {ticker} @ {curr_price:.2f} | PnL: {pnl_rv:+.2f}%")
+                                    trade_history.append({'date': trade_date, 'ticker': ticker, 'side': pos['side'],
+                                                          'entry_price': pos['entry_price'], 'exit_price': curr_price,
+                                                          'pnl': pnl_rv, 'type': 'vwap_revert', 'regime': regime,
+                                                          'strategy_type': 'mean_reversion'})
+                                    positions.remove(pos)
+                                    continue
+                        except Exception:
+                            pass
+
+                    # 30-bar time stop (2.5 hours): thesis invalidated if no snap-back
+                    try:
+                        bars_held = int((ts - pos['entry_time']).total_seconds() / 300)
+                        if bars_held >= 30:
+                            is_long  = pos['side'] == 'long'
+                            lev      = pos.get('leverage', 1.0)
+                            slip_pct = params.get('slippage_pct', 0.0)
+                            comm_pct = params.get('commission_pct', 0.0)
+                            eff_exit_tb = curr_price * (1.0 - slip_pct) if is_long else curr_price * (1.0 + slip_pct)
+                            pnl_tb = ((eff_exit_tb - pos['entry_price']) / pos['entry_price'] * (1 if is_long else -1)) * 100 * lev
+                            entry_equity_tb = pos['position_dollars'] / lev
+                            equity += (pnl_tb / 100.0) * entry_equity_tb
+                            if comm_pct > 0.0:
+                                equity -= entry_equity_tb * comm_pct
+                            log(f"  [{day_str}] TIMEOUT {ticker} (MEAN-REV) @ {curr_price:.2f} | PnL: {pnl_tb:+.2f}% | Held {bars_held} bars")
+                            trade_history.append({'date': trade_date, 'ticker': ticker, 'side': pos['side'],
+                                                  'entry_price': pos['entry_price'], 'exit_price': curr_price,
+                                                  'pnl': pnl_tb, 'type': 'timeout', 'regime': regime,
+                                                  'strategy_type': 'mean_reversion'})
+                            positions.remove(pos)
+                            continue
+                    except Exception:
+                        pass
+
                 is_closed, close_type, pnl = manage_position(pos, curr_price, ts, params, current_mtf_tsl=current_tsl)
-                
+
                 if is_closed:
+                    # Apply exit-leg slippage: selling long at bid (below bar close), covering short at ask
+                    slip_pct = params.get('slippage_pct', 0.0)
+                    comm_pct = params.get('commission_pct', 0.0)
+                    is_long  = pos['side'] == 'long'
+                    lev      = pos.get('leverage', 1.0)
+                    eff_exit = curr_price * (1.0 - slip_pct) if is_long else curr_price * (1.0 + slip_pct)
+                    # Recompute pnl using slippage-adjusted exit price
+                    if is_long:
+                        pnl = ((eff_exit - pos['entry_price']) / pos['entry_price'] * lev) * 100
+                    else:
+                        pnl = ((pos['entry_price'] - eff_exit) / pos['entry_price'] * lev) * 100
+                    # Deduct exit-leg commission from equity
+                    if comm_pct > 0.0:
+                        equity -= (pos['position_dollars'] / lev) * comm_pct
+
                     side_str = pos['side'].upper()
                     action = "STOP" if close_type == 'stop' else "TARGET"
                     log(f"  [{day_str}] {action} {pos['ticker']} ({side_str}) @ {curr_price:.2f} | PnL: {pnl:+.2f}%")
-                    
+
                     if close_type == 'stop':
                         daily_stopped_tickers.add(pos['ticker'])
+                        cooldown_days = params.get('ticker_cooldown_days', 3)
+                        # Loss-triggered extended cooldown: large stop-outs get a longer blacklist
+                        # (e.g. -8% CVNA-style wipeout should not be allowed back for weeks)
+                        loss_threshold = params.get('loss_cooldown_threshold', -1.5)
+                        extended_days  = params.get('ticker_cooldown_extended_days', 10)
+                        if pnl < loss_threshold:
+                            applied_cooldown = extended_days
+                        else:
+                            applied_cooldown = cooldown_days
+                        if applied_cooldown > 0:
+                            ticker_cooldown[pos['ticker']] = day_idx + applied_cooldown
+                    elif close_type == 'target':
+                        daily_targeted_tickers.add(pos['ticker'])  # Cool off after target hit
                     
                     # Convert the account-relative % PnL into raw dollars using the entry equity.
                     # This prevents double-compounding math errors on overlapping concurrent trades.
@@ -448,115 +618,101 @@ def run_backtest_v2(
                         'entry_price': pos['entry_price'],
                         'exit_price': curr_price,
                         'pnl': pnl,
+                        'profit_dollars': profit_dollars,
                         'type': close_type,
-                        'regime': regime
+                        'regime': regime,
+                        'strategy_type': pos.get('strategy_type', 'momentum'),
                     })
                     positions.remove(pos)
             
             # 2. Scan for new entries (if under position limit)
+            if equity <= 0:
+                log(f"  [{day_str}] BANKRUPT — equity ${equity:,.2f}, halting new entries")
+                continue
             if len(positions) >= params.get('max_positions', 5):
                 continue
                 
-            # Prevent entries outside regular market hours (after 15:50 or before 9:30)
-            if ts.hour >= 16 or (ts.hour == 15 and ts.minute >= 50) or ts.hour < 9 or (ts.hour == 9 and ts.minute < 30):
+            # Prevent entries outside regular market hours (after 15:50 or before 9:30 ET)
+            # Uses ET conversion so the filter is correct for both UTC-aware (Alpaca) and naive timestamps.
+            _ts_hour, _ts_min = _et_hour_minute(ts)
+            if _ts_hour >= 16 or (_ts_hour == 15 and _ts_min >= 50) or _ts_hour < 9 or (_ts_hour == 9 and _ts_min < 30):
                 continue
             
             held_tickers = {p['ticker'] for p in positions}
             
-            # Determine candidate tickers based on regime
-            effective_regime = 'bull' if always_long else regime
-            
-            if effective_regime == 'bull':
-                candidates = [p['ticker'] for p in top_picks if p['ticker'] not in held_tickers]
-            else:
-                # Bear/Chop: try shorting top picks + longing inverse ETFs
-                candidates = [p['ticker'] for p in top_picks if p['ticker'] not in held_tickers]
-                inv_candidates = [etf for etf in INVERSE_ETFS[:5] 
-                                  if etf not in held_tickers and etf in intraday_data]
-                candidates.extend(inv_candidates)
-            
-            valid_signals = []
-            
-            for ticker in candidates:
-                if len(positions) >= params.get('max_positions', 5):
-                    break
-                if ticker in held_tickers:
-                    continue
-                if ticker in daily_stopped_tickers: # Anti-revenge logic
-                    continue
-                if ticker not in intraday_data:
-                    continue
-                
-                bars = intraday_data[ticker]
-                if bars is None or len(bars) == 0:
-                    continue
-                
-                # Compute indicators on data UP TO this timestamp (no future bias)
-                bars_so_far = bars.loc[:ts]
-                if len(bars_so_far) < 16:  # production stack needs 16+ bars
-                    continue
-                
+            # ── Fast intraday regime (SPY EMA20) ─────────────────────────────
+            spy_5m_so_far = None
+            if SPY_TICKER in ticker_day_metrics:
+                spy_5m_so_far = ticker_day_metrics[SPY_TICKER].loc[:ts]
+            intraday_regime = _intraday_regime(spy_5m_so_far)
+
+            # ── Helper: evaluate one ticker and return a signal dict or None ──
+            def _eval_ticker(ticker, eval_fn, trend_scores):
+                if ticker in held_tickers:            return None
+                if ticker in daily_stopped_tickers:   return None
+                if ticker in daily_targeted_tickers:  return None  # Already hit target today
+                if ticker_cooldown.get(ticker, 0) > day_idx: return None  # Multi-day stop cooldown
+                # Use precomputed daily metrics (O(1) per bar instead of O(n²))
+                if ticker not in ticker_day_metrics:  return None
+                bars_so_far = ticker_day_metrics[ticker].loc[:ts]
+                if len(bars_so_far) < 16:             return None
                 try:
-                    df_precomp = precompute_quant_metrics_for_ticker(bars_so_far)
-                    df_precomp = precompute_mtf_tsl_for_ticker(df_precomp)
-                    quant = build_quant_metrics(df_precomp)
+                    quant = build_quant_metrics(bars_so_far)  # fast-path: reads from precomputed cols
                     quant['current_price'] = float(bars_so_far['close'].iloc[-1])
                 except Exception as e:
-                    import traceback
-                    print(f"Error computing indicators for {ticker} at {ts}: {e}")
-                    traceback.print_exc()
-                    continue
-                
+                    return None
                 entry_price = quant['current_price']
-                if entry_price <= 0:
-                    continue
-                
+                if entry_price <= 0: return None
                 atr = quant.get("atr_5m", 0.0)
-                
-                # Apply ATR fallback as per mock_technical_analyst
                 if atr == 0.0:
-                    price = quant.get("current_price", 0.0)
-                    atr = price * 0.004 if price > 0 else 1.0
-                    quant["atr_5m"] = atr 
-                
-                trend_score = daily_trend_scores.get(ticker, 20.0)
-                is_inverse_etf = ticker in INVERSE_ETFS
-                
-                entered = False
-                side = 'long'
-                reason = ''
-                
-                if effective_regime == 'bull':
-                    entered, reason = evaluate_bull_entry(quant, trend_score, sparm)
-                    side = 'long'
-                elif effective_regime in ['bear', 'chop']:
-                    # Inverse ETFs capture massive momentum to the upside during crashes
-                    if is_inverse_etf:
-                        entered, reason = evaluate_bull_entry(quant, trend_score, sparm)
-                        side = 'long'
-                    # Standard stocks are purchased at severe, panicked discounts (buying the dip)
-                    else:
-                        entered, reason = evaluate_dip_buy_entry(quant, trend_score, sparm)
-                        side = 'long'
+                    atr = entry_price * 0.004 if entry_price > 0 else 1.0
+                    quant["atr_5m"] = atr
+                trend_score = trend_scores.get(ticker, 20.0)
+                entered, reason = eval_fn(quant, trend_score, sparm)
+                if not entered: return None
+                # No hybrid score in new strategy — fixed neutral conviction;
+                # regime_multiplier handles scaling instead.
+                h_score = 55
+                return {'ticker': ticker, 'side': 'long', 'quant': quant,
+                        'entry_price': entry_price, 'atr': atr,
+                        'h_score': h_score, 'reason': reason,
+                        'daily_atr_pct': daily_atr_pcts.get(ticker, 0.015)}
 
-                if entered:
-                    # Parse out hybrid score from reason string
-                    import re
-                    h_score = 0
-                    m = re.search(r'Score=(\d+)', reason)
-                    if m: h_score = int(m.group(1))
-                    
-                    valid_signals.append({
-                        'ticker': ticker,
-                        'side': side,
-                        'quant': quant,
-                        'entry_price': entry_price,
-                        'atr': atr,
-                        'h_score': h_score,
-                        'reason': reason
-                    })
-                    
-            # Process signals: Sort by Alpha (h_score) descending, take top 2
+            valid_signals = []
+            max_pos = params.get('max_positions', 5)
+            candidates = [p['ticker'] for p in top_picks if p['ticker'] not in held_tickers]
+
+            for ticker in candidates:
+                if len(positions) + len(valid_signals) >= max_pos:
+                    break
+
+                # Momentum entry: only in bull regime
+                if intraday_regime == 'bull':
+                    sig = _eval_ticker(ticker, evaluate_momentum_entry, daily_trend_scores)
+                    if sig:
+                        sig['strategy_type'] = 'momentum'
+                        sig['regime_multiplier'] = 1.0
+                        valid_signals.append(sig)
+                        continue
+
+                # Mean reversion entry: all regimes, regime scales size
+                sig = _eval_ticker(ticker, evaluate_mean_reversion_entry, daily_trend_scores)
+                if sig:
+                    sig['strategy_type'] = 'mean_reversion'
+                    if intraday_regime == 'bull':
+                        sig['regime_multiplier'] = 0.7
+                    elif intraday_regime == 'chop':
+                        sig['regime_multiplier'] = 1.0
+                    elif intraday_regime == 'bear':
+                        # Only extreme setups in bear
+                        z_val = sig['quant'].get('vwap_zscore', 0)
+                        vr_val = sig['quant'].get('volume_ratio', 1.0)
+                        if z_val > -3.5 or vr_val < 3.0:
+                            continue  # reject non-extreme setups in bear
+                        sig['regime_multiplier'] = 0.4
+                    valid_signals.append(sig)
+
+            # Process signals: take top 2 overall
             valid_signals.sort(key=lambda x: x['h_score'], reverse=True)
             top_signals = valid_signals[:2]
             
@@ -571,62 +727,126 @@ def run_backtest_v2(
                 reason = sig['reason']
                 
                 # Volatility-Parity sizing + Margin Cap logic
-                stop_r_val = params.get('stop_r', 3.0)
-                target_r_val = params.get('target_r', 3.0)
-                
+                is_mean_rev = sig.get('strategy_type') == 'mean_reversion'
+                stop_r_val = params.get('stop_r', 1.5)
+                target_r_val = params.get('target_r', 2.0)
+
                 # ---------------------------------------------------------
                 # DYNAMIC VOLATILITY PARITY SIZING
                 # ---------------------------------------------------------
-                stop_dist = stop_r_val * atr  # Assumes 'atr' is calculated from the current 5m bar
+                # Stop placement: use 5m ATR, but floor at 0.5× daily ATR to prevent
+                # intraday noise from triggering stops on normal oscillation.
+                # Mean reversion uses a fixed tight 1.5× stop (VWAP revert is the primary exit).
+                effective_stop_r = 1.5 if is_mean_rev else stop_r_val
+                stop_dist_5m = effective_stop_r * atr
+                daily_atr_dollars = sig.get('daily_atr_pct', 0.015) * entry_price
+                stop_dist = max(stop_dist_5m, 0.5 * daily_atr_dollars)
 
                 base_risk_fraction = params.get('risk_per_trade', 0.05)
-                
-                # Conviction Scaling: h_score mapped from (30 -> 0.5) to (70 -> 1.0)
-                h_score = sig.get('h_score', 50)
-                conviction_multiplier = ((h_score - 30) / (70 - 30)) * (1.0 - 0.5) + 0.5
-                conviction_multiplier = max(0.5, min(1.5, conviction_multiplier))
-                
-                # Regime Scaling (default 1.0 for now)
-                regime_multiplier = 1.0
-                
-                dynamic_risk_fraction = base_risk_fraction * conviction_multiplier * regime_multiplier
+
+                # Conviction Scaling: disabled (h_score not yet dynamic in v2).
+                # When a real conviction signal is available, map h_score
+                # from (30 → 0.5) to (70 → 1.5) here.
+                conviction_multiplier = 1.0
+
+                # Regime Scaling: driven by intraday regime via signal dict
+                regime_multiplier = sig.get('regime_multiplier', 1.0)
+
+                # Portfolio Heat Scaling — adaptive, no hardcoded cap.
+                # Measures recent trade-return volatility and scales size down when
+                # the portfolio is running "hot" (e.g. a losing streak inflates vol).
+                # min 5 trades for a meaningful sample; target_trade_vol is the desired
+                # per-trade return std in % (e.g. 2.0 means we expect ~2% std per trade).
+                if len(trade_history) >= 5:
+                    recent_pnls = [t['pnl'] for t in trade_history[-20:]]
+                    recent_vol = float(np.std(recent_pnls)) if len(recent_pnls) > 1 else 2.0
+                    target_trade_vol = params.get('target_trade_vol', 2.0)
+                    heat_scalar = min(1.2, target_trade_vol / max(recent_vol, 0.3))
+                else:
+                    heat_scalar = 1.0  # no history yet — full base size
+
+                # Diversification Scaling — mathematically grounded, no hardcoded cap.
+                # Portfolio variance with N correlated positions scales sub-linearly.
+                # 0 open→1.0x, 1 open→0.71x, 2→0.58x, 3→0.50x, 4→0.45x
+                n_open = len(positions)
+                div_scalar = 1.0 / np.sqrt(n_open + 1)
+
+                dynamic_risk_fraction = (
+                    base_risk_fraction
+                    * conviction_multiplier
+                    * regime_multiplier
+                    * heat_scalar
+                    * div_scalar
+                )
                 risk_dollars = equity * dynamic_risk_fraction
 
-                # Convert Risk to Position Size correctly using Volatility Parity
+                # Convert Risk to Position Size using daily ATR-scaled volatility parity.
+                # The actual stop is at stop_r × ATR_5m (tight intraday stop), but
+                # position SIZE uses the stock's daily ATR as a floor. This makes
+                # risk_per_trade meaningful without the old arbitrary 4% floor that
+                # amplified losses by over-sizing positions.
                 stop_pct = stop_dist / entry_price
+                daily_atr_pct = sig.get('daily_atr_pct', 0.015)
                 if stop_pct > 0:
-                    ideal_position_dollars = risk_dollars / stop_pct
+                    sizing_stop = max(stop_pct, daily_atr_pct)
+                    ideal_position_dollars = risk_dollars / sizing_stop
                 else:
                     ideal_position_dollars = equity * 0.2  # Fallback
                     
-                # Hard Cap: Position Concentration Cap (30% max per position)
-                max_single_position = equity * 0.30
-                ideal_position_dollars = min(ideal_position_dollars, max_single_position)
-
-                # Apply Time-Based Margin Caps (Portfolio Defense)
+                # Portfolio-Level Leverage Cap (makes div_scalar actually effective)
+                # Instead of capping each position independently at 1.0× equity,
+                # we cap TOTAL deployed capital at max_total_leverage × equity.
+                # With multiple open positions, available_capital shrinks naturally —
+                # div_scalar reduces risk_dollars and the leverage cap reduces position
+                # size through two independent, compounding channels.
+                # Example (equity=$10K, max_total_leverage=1.5, 2 open @$7.5K each):
+                #   available = $15K - $15K = $0 → new entries are REJECTED, not squeezed
+                target_total_leverage = params.get('max_total_leverage', 1.5)
                 current_deployed = sum(p['position_dollars'] for p in positions)
-                is_morning = (ts.hour < 11)
-                total_margin_limit = equity * 2.0 if is_morning else equity * 4.0
-                available_margin = total_margin_limit - current_deployed
+                available_capital = max(0.0, equity * target_total_leverage - current_deployed)
 
-                if available_margin < 100:
-                    log(f"  [{day_str}] {side.upper()} {ticker} REJECTED | Reason: Margined Out (MorningCap={is_morning})")
-                    continue
-                    
-                position_dollars = min(ideal_position_dollars, available_margin)
+                if available_capital < 100:
+                    continue  # Leverage cap reached — silent (expected behaviour, not an error)
+
+                # Per-position leverage caps:
+                #   Mean reversion: 0.5× equity (lower-conviction)
+                #   Momentum: 1.0× equity (no single trade exceeds equity)
+                max_per_trade = equity * 0.5 if is_mean_rev else equity * 1.0
+                position_dollars = min(ideal_position_dollars, available_capital, max_per_trade)
                 effective_leverage = position_dollars / equity
-                
+
+                # ── Slippage: adjust entry price to simulate bid-ask spread ──
+                # Buying a long: we pay the ask (above mid). Shorting: we receive bid (below mid).
+                slip_pct  = params.get('slippage_pct', 0.0)
+                comm_pct  = params.get('commission_pct', 0.0)
                 if side == 'long':
-                    stop = entry_price - stop_dist
-                    target = entry_price + target_r_val * atr
+                    eff_entry = entry_price * (1.0 + slip_pct)
                 else:
-                    stop = entry_price + stop_dist
-                    target = entry_price - target_r_val * atr
-                
+                    eff_entry = entry_price * (1.0 - slip_pct)
+
+                # Mean reversion uses a wide ATR hard cap (VWAP revert exit fires first).
+                # Momentum trades use the optimizer-tuned target_r.
+                if is_mean_rev:
+                    effective_target_r = target_r_val * 2  # hard cap; VWAP reversion fires first
+                else:
+                    effective_target_r = target_r_val
+
+                if side == 'long':
+                    stop = eff_entry - stop_dist
+                    target = eff_entry + effective_target_r * atr
+                else:
+                    stop = eff_entry + stop_dist
+                    target = eff_entry - effective_target_r * atr
+
+                # Deduct entry-leg commission immediately
+                if comm_pct > 0.0:
+                    equity -= (position_dollars / effective_leverage) * comm_pct
+
                 pos = {
                     'ticker': ticker,
                     'side': side,
-                    'entry_price': entry_price,
+                    'entry_price': eff_entry,
+                    'raw_entry_price': entry_price,   # pre-slippage, for logging
                     'position_dollars': position_dollars,
                     'stop': stop,
                     'target': target,
@@ -634,39 +854,91 @@ def run_backtest_v2(
                     'leverage': effective_leverage,
                     'entry_time': ts,
                     'regime': regime,
-                    'days_held': 0
+                    'days_held': 0,
+                    'strategy_type': sig.get('strategy_type', 'momentum'),
                 }
                 positions.append(pos)
                 held_tickers.add(ticker)
-                
-                log(f"  [{day_str}] {side.upper()} {ticker} @ {entry_price:.2f} | {reason} | Size: ${position_dollars:,.0f} | Lev: {effective_leverage:.1f}x | Regime: {regime.upper()}")
+
+                log(f"  [{day_str}] {side.upper()} {ticker} @ {entry_price:.2f} (eff={eff_entry:.2f}) | {reason} | Size: ${position_dollars:,.0f} | Lev: {effective_leverage:.1f}x | Regime: {intraday_regime.upper()}")
         
-        # End of day: Check if we need to force close (intraday mode) OR increment hold days
-        # (Intraday forced EOD close logic removed per user request. Positions hold indefinitely until stops/targets hit)
-        equity_curve.append({'date': trade_date, 'equity': equity})
+        # ── EOD: Increment hold-day counter, force-close stale momentum positions ──
+        # Mean reversion positions have a 30-bar intraday timeout already.
+        # Momentum entries are subject to max_hold_trading_days.
+        max_hold = params.get('max_hold_trading_days', 0)
+        for pos in list(positions):
+            pos['days_held'] = pos.get('days_held', 0) + 1
+            if max_hold > 0 and pos.get('strategy_type') != 'mean_reversion' and pos['days_held'] >= max_hold:
+                ticker = pos['ticker']
+                last_price = pos['entry_price']  # fallback: flat PnL if no intraday data
+                if ticker in intraday_data and intraday_data[ticker] is not None and len(intraday_data[ticker]) > 0:
+                    last_price = float(intraday_data[ticker]['close'].iloc[-1])
+                is_long  = pos['side'] == 'long'
+                lev      = pos.get('leverage', 1.0)
+                slip_pct = params.get('slippage_pct', 0.0)
+                comm_pct = params.get('commission_pct', 0.0)
+                eff_exit_hold = last_price * (1.0 - slip_pct) if is_long else last_price * (1.0 + slip_pct)
+                pnl_hold = ((eff_exit_hold - pos['entry_price']) / pos['entry_price'] * (1 if is_long else -1)) * 100 * lev
+                entry_equity_hold = pos['position_dollars'] / lev
+                profit_dollars_hold = (pnl_hold / 100.0) * entry_equity_hold
+                equity += profit_dollars_hold
+                if comm_pct > 0.0:
+                    equity -= entry_equity_hold * comm_pct
+                log(f"  [{day_str}] MAX-HOLD {ticker} ({pos['side'].upper()}) @ {last_price:.2f} | PnL: {pnl_hold:+.2f}% | Held {pos['days_held']} days")
+                trade_history.append({
+                    'date': trade_date, 'ticker': ticker, 'side': pos['side'],
+                    'entry_price': pos['entry_price'], 'exit_price': last_price,
+                    'pnl': pnl_hold, 'profit_dollars': profit_dollars_hold,
+                    'type': 'max_hold', 'regime': regime,
+                    'strategy_type': pos.get('strategy_type', 'momentum'),
+                })
+                positions.remove(pos)
+
+        # Mark-to-market open positions at EOD close for accurate drawdown tracking.
+        # Realized equity only changes on trade close, so without MTM the equity
+        # curve misses intraday adverse moves on held positions.
+        mtm_equity = equity
+        for pos in positions:
+            ticker = pos['ticker']
+            if ticker in intraday_data and intraday_data[ticker] is not None and len(intraday_data[ticker]) > 0:
+                mtm_price = float(intraday_data[ticker]['close'].iloc[-1])
+                lev = pos.get('leverage', 1.0)
+                entry_eq = pos['position_dollars'] / lev
+                if pos['side'] == 'long':
+                    unrealized = (mtm_price - pos['entry_price']) / pos['entry_price'] * lev * entry_eq
+                else:
+                    unrealized = (pos['entry_price'] - mtm_price) / pos['entry_price'] * lev * entry_eq
+                mtm_equity += unrealized
+        equity_curve.append({'date': trade_date, 'equity': mtm_equity})
         
-    # After simulation loop, close any lingering positions
+    # After simulation loop, close any lingering positions at last known 5m price.
+    # IMPORTANT: Use intraday 5m bar price (same source as entry price) NOT the daily
+    # CSV which stores backward split-adjusted prices and will produce wildly wrong PnL.
+    last_day_intraday = daily_snapshots[-1].get('intraday_data', {}) if daily_snapshots else {}
     for pos in list(positions):
         ticker = pos['ticker']
-        last_price = pos['entry_price']
-        if ticker in all_tickers:
-            tdf = all_tickers[ticker]
-            daily_slice = tdf.loc[:end_date]
-            if not daily_slice.empty:
-                last_price = float(daily_slice['close'].iloc[-1])
-            
-        is_long = pos['side'] == 'long'
+        last_price = pos['entry_price']  # Fallback: flat PnL if no closing price found
+        if ticker in last_day_intraday and last_day_intraday[ticker] is not None and len(last_day_intraday[ticker]) > 0:
+            last_price = float(last_day_intraday[ticker]['close'].iloc[-1])
+
+        is_long  = pos['side'] == 'long'
+        lev      = pos.get('leverage', 1.0)
+        slip_pct = params.get('slippage_pct', 0.0)
+        comm_pct = params.get('commission_pct', 0.0)
+        eff_last = last_price * (1.0 - slip_pct) if is_long else last_price * (1.0 + slip_pct)
         if is_long:
-            pnl = ((last_price - pos['entry_price']) / pos['entry_price'] * pos.get('leverage', 1.0)) * 100
+            pnl = ((eff_last - pos['entry_price']) / pos['entry_price'] * lev) * 100
         else:
-            pnl = ((pos['entry_price'] - last_price) / pos['entry_price'] * pos.get('leverage', 1.0)) * 100
-        
+            pnl = ((pos['entry_price'] - eff_last) / pos['entry_price'] * lev) * 100
+
         # Convert the account-relative % PnL into raw dollars using the entry equity.
         # This prevents double-compounding math errors on overlapping concurrent trades.
-        entry_equity = pos['position_dollars'] / pos.get('leverage', 1.0)
+        entry_equity = pos['position_dollars'] / lev
         profit_dollars = (pnl / 100.0) * entry_equity
         equity += profit_dollars
-        
+        if comm_pct > 0.0:
+            equity -= entry_equity * comm_pct
+
         trade_history.append({
             'date': end_date,
             'ticker': ticker,
@@ -674,11 +946,14 @@ def run_backtest_v2(
             'entry_price': pos['entry_price'],
             'exit_price': last_price,
             'pnl': pnl,
+            'profit_dollars': profit_dollars,
             'type': 'eod_close',
-            'regime': pos['regime']
+            'regime': pos['regime'],
+            'strategy_type': pos.get('strategy_type', 'momentum'),
         })
         log(f"  [FINAL] EOD CLOSE {ticker} ({pos['side'].upper()}) @ {last_price:.2f} | PnL: {pnl:+.2f}%")
     positions.clear()
+
     equity_curve.append({'date': end_date, 'equity': equity})
     
     # ── Performance Summary ──
@@ -698,9 +973,9 @@ def run_backtest_v2(
     loss_count = len(losses)
     win_rate = win_count / total_trades * 100
     
-    gross_profit = sum(t['pnl'] for t in wins)
-    gross_loss = sum(abs(t['pnl']) for t in losses)
-    profit_factor = gross_profit / gross_loss if gross_loss > 0 else float('inf')
+    gross_profit_dollars = sum(t['profit_dollars'] for t in wins)
+    gross_loss_dollars = sum(abs(t['profit_dollars']) for t in losses)
+    profit_factor = gross_profit_dollars / gross_loss_dollars if gross_loss_dollars > 0 else float('inf')
     
     avg_win = gross_profit / win_count if win_count > 0 else 0
     avg_loss = gross_loss / loss_count if loss_count > 0 else 0
@@ -725,7 +1000,7 @@ def run_backtest_v2(
     log(f"Wins: {win_count} | Losses: {loss_count} | Win Rate: {win_rate:.2f}%")
     log(f"Avg Return Per Trade: {avg_pnl:.4f}%")
     log(f"Profit Factor: {profit_factor:.2f}")
-    log(f"Gross Profit: {gross_profit:.2f} | Gross Loss: {gross_loss:.2f}")
+    log(f"Gross Profit: ${gross_profit_dollars:,.2f} | Gross Loss: ${gross_loss_dollars:,.2f}")
     
     log(f"\nBreakdown:")
     log(f"  Bull Regime: {len(bull_trades)} trades | Win Rate: {bull_win_rate:.1f}%")
@@ -741,7 +1016,7 @@ def run_backtest_v2(
     bear_avg = sum(t['pnl'] for t in bear_trades) / len(bear_trades) if bear_trades else 0
     
     log("\n[V1 CSV MATCH FORMAT]")
-    log(f"{pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')},MTF Strict Execution (Momentum Breakout),{profit_factor:.2f},{win_rate:.2f},{total_trades},{avg_pnl:.4f},{bull_avg:.4f},{bear_avg:.4f},0.0000,0.0000,{gross_profit:.2f},{gross_loss:.2f}")
+    log(f"{pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')},MTF Strict Execution (Momentum Breakout),{profit_factor:.2f},{win_rate:.2f},{total_trades},{avg_pnl:.4f},{bull_avg:.4f},{bear_avg:.4f},0.0000,0.0000,{gross_profit_dollars:.2f},{gross_loss_dollars:.2f}")
     
     # Save log
     with open(LOG_FILE, "w", encoding="utf-8") as f:
@@ -781,19 +1056,44 @@ if __name__ == "__main__":
     parser.add_argument("--long-only", action="store_true", help="Force MTF Strict Long strategy only (ignore regime)")
     parser.add_argument("--no-fetch", action="store_true", help="Skip Alpaca 5m fetch (use cached only)")
     parser.add_argument("--param-file", type=str, default=None, help="Path to strategy parameters file (CSV 2-lines format)")
+    parser.add_argument("--retrain-interval", type=int, default=21,
+                        help="HMM retrain every N trading days (21≈monthly). Use 1 for daily (live-trading accuracy).")
+    parser.add_argument("--max-leverage", type=float, default=1.5,
+                        help="Max total portfolio leverage (deployed $ / equity). Default 1.5× (150%% of capital).")
+    parser.add_argument("--max-hold-days", type=int, default=10,
+                        help="Max trading days to hold a momentum position before EOD force-close (0 = disabled). Default 10.")
+    parser.add_argument("--cooldown-days", type=int, default=3,
+                        help="Trading days a ticker is blacklisted after a stop-out. Default 3 (~1 week).")
+    parser.add_argument("--loss-cooldown-threshold", type=float, default=-1.5,
+                        help="PnL%% below which the extended cooldown fires instead of normal. Default -1.5%%.")
+    parser.add_argument("--extended-cooldown-days", type=int, default=10,
+                        help="Extended blacklist days applied after a large loss stop-out. Default 10.")
+    parser.add_argument("--regime-dwell-days", type=int, default=3,
+                        help="Min consecutive days a new HMM regime must hold before label switches (reduces lag). Default 3.")
+    parser.add_argument("--slippage", type=float, default=0.0003,
+                        help="Slippage per leg as a decimal fraction (0.0003 = 0.03%% = 3 bps). Default 0.0003.")
+    parser.add_argument("--commission", type=float, default=0.0,
+                        help="Commission per leg as a decimal fraction (0 = free like Alpaca). Default 0.0.")
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args()
-    
+
     sparm = load_strategy_params(args.param_file)
-    
+
     custom_params = {
         'stop_r': sparm['stop_r'],
         'target_r': sparm['target_r'],
         'risk_per_trade': sparm.get('risk_per_trade', 0.05),
+        'target_trade_vol': 2.0,
+        'max_total_leverage': args.max_leverage,
         'max_positions': 5,
-        'max_hold_days': 0,
+        'max_hold_trading_days': args.max_hold_days,
+        'ticker_cooldown_days': args.cooldown_days,
+        'loss_cooldown_threshold': args.loss_cooldown_threshold,
+        'ticker_cooldown_extended_days': args.extended_cooldown_days,
+        'slippage_pct': args.slippage,
+        'commission_pct': args.commission,
     }
-    
+
     results = run_backtest_v2(
         start_date=args.start,
         end_date=args.end,
@@ -802,5 +1102,7 @@ if __name__ == "__main__":
         verbose=not args.quiet,
         always_long=args.long_only,
         params=custom_params,
-        sparm=sparm
+        sparm=sparm,
+        retrain_interval_days=args.retrain_interval,
+        regime_dwell_days=args.regime_dwell_days,
     )

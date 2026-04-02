@@ -1,0 +1,21 @@
+{
+  "long_hybrid": 66.0,
+  "long_exec": 48.0,
+  "long_vwap": 1.5,
+  "long_delta_min": 0.63,
+  "dip_hybrid": 69.0,
+  "dip_exec": 30.0,
+  "dip_vwap": 0.5,
+  "dip_delta_max": 0.33999999999999997,
+  "stop_r": 3.5,
+  "target_r": 4.0,
+  "dip_stop_r": 2.0,
+  "dip_target_r": 2.0,
+  "risk_per_trade": 0.07,
+  "max_hold_trading_days": 11,
+  "ticker_cooldown_days": 3,
+  "loss_cooldown_threshold": -1.5,
+  "ticker_cooldown_extended_days": 17,
+  "_composite_score": 1.7265310922261699,
+  "_trial_number": 402
+}
