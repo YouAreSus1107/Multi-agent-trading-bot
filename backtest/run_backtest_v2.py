@@ -122,44 +122,49 @@ def evaluate_momentum_entry(quant: dict, trend_score: float, sparm: dict) -> tup
       2. vwap_zscore <= 2.5             (not extremely overbought)
       3. volume_ratio >= mom_vol_ratio_min  (volume expanding vs 20-bar SMA)
       4. delta_ratio >= mom_delta_min   (buy-side dominance)
-      5. trend_score >= 22.4            (daily trend alignment; 56/100 * 0.40 on 0-40 scale)
+      5. ema_slope > 0                  (daily EMA(20) rising — trend direction is up)
+
+    Note: composite trend_score (RSI+MACD+EMA+BB composite) removed — correlated indicators
+    composited together add noise not independent confirmation. EMA slope is a single clean signal.
     """
     z = quant.get('vwap_zscore', 0)
     vol_ratio = quant.get('volume_ratio', 1.0)
     dr = quant.get('delta_ratio', 0.5)
-
-    # trend_score is on 0-40 scale. 56 on the 0-100 raw scale = 22.4 here.
-    min_trend = 22.4
+    ema_slope = quant.get('ema_slope', 0.0)
 
     entry = (
         z >= sparm['mom_vwap_z_min'] and           # price above VWAP
         z <= 2.5 and                                # not extremely overbought
         vol_ratio >= sparm['mom_vol_ratio_min'] and # volume expanding vs 20-bar SMA
         dr >= sparm['mom_delta_min'] and            # buy-side dominance
-        trend_score >= min_trend                     # daily trend alignment
+        ema_slope > 0                               # daily EMA(20) is rising
     )
 
-    reason = f"MOM Z={z:.2f} VR={vol_ratio:.1f} DR={dr:.2f} TS={trend_score:.1f}"
+    reason = f"MOM Z={z:.2f} VR={vol_ratio:.1f} DR={dr:.2f} EMA={'UP' if ema_slope > 0 else 'FLAT'}"
     return entry, reason
 
 
 def evaluate_mean_reversion_entry(quant: dict, trend_score: float, sparm: dict) -> tuple[bool, str]:
     """
     Confirmed Capitulation + Reversal Bar.
-    Requires deep VWAP extension, RSI oversold, volume SPIKE, and smart_bounce.
+    Requires deep VWAP extension, volume SPIKE, and buyer absorption on current bar.
 
     Conditions (all must be true):
       1. vwap_zscore <= rev_vwap_z_max  (deep below VWAP)
-      2. rsi_14 < 32                    (genuinely oversold)
-      3. volume_ratio >= rev_vol_spike_min  (capitulation volume spike)
-      4. smart_bounce == True           (reversal bar: buy_frac > 0.75 AND vol > 1.5x SMA)
-      5. delta_ratio <= 0.38            (selling pressure over 20 bars)
-      6. trend_score >= 8.0             (not in total structural freefall; 20/100 * 0.40)
+      2. volume_ratio >= rev_vol_spike_min  (capitulation volume spike, >= 2x SMA)
+      3. last_bar_buy_pct > 0.75        (reversal bar: buyers absorbing > 75% of this bar)
+      4. delta_ratio <= 0.38            (sustained selling pressure over 20 bars)
+      5. trend_score >= 8.0             (not in total structural freefall; 20/100 * 0.40)
+
+    Removed: rsi < 32 — redundant with vwap_zscore already capturing oversold in
+    volatility-adjusted terms. RSI is a lagged echo of the same dislocation.
+
+    Removed: smart_bounce volume check (vol > 1.5x SMA) — subsumed by rev_vol_spike_min >= 2.0.
+    Kept: buy_frac > 0.75 directional reversal confirmation (independent signal).
     """
     z = quant.get('vwap_zscore', 0)
-    rsi = quant.get('rsi_14', 50.0)
     vol_ratio = quant.get('volume_ratio', 1.0)
-    smart_bounce = quant.get('smart_bounce', False)
+    buy_pct = quant.get('last_bar_buy_pct', 0.5)
     dr = quant.get('delta_ratio', 0.5)
 
     # trend_score floor: 20 on 0-100 scale = 8.0 on 0-40 scale
@@ -167,14 +172,13 @@ def evaluate_mean_reversion_entry(quant: dict, trend_score: float, sparm: dict) 
 
     entry = (
         z <= sparm['rev_vwap_z_max'] and              # deep below VWAP
-        rsi < 32.0 and                                 # genuinely oversold
         vol_ratio >= sparm['rev_vol_spike_min'] and    # capitulation volume spike
-        smart_bounce and                                # reversal bar: buyers stepping in
-        dr <= 0.38 and                                  # selling pressure over 20 bars
+        buy_pct > 0.75 and                             # reversal bar: buyers absorbing this bar
+        dr <= 0.38 and                                  # sustained selling pressure over 20 bars
         trend_score >= min_trend                        # not in total structural freefall
     )
 
-    reason = f"REV Z={z:.2f} RSI={rsi:.1f} VR={vol_ratio:.1f} SB={smart_bounce} DR={dr:.2f}"
+    reason = f"REV Z={z:.2f} VR={vol_ratio:.1f} BUY%={buy_pct:.2f} DR={dr:.2f}"
     return entry, reason
 
 
@@ -395,10 +399,10 @@ def run_backtest_v2(
         if not execution_times:
             continue
         
-        # Daily trend scores (computed once per day from daily data)
-        # Uses the exact same production compute_trend_score (RSI+MACD+EMA+BB+Vol)
+        # Daily trend scores + EMA slopes (computed once per day from T-1 daily data)
         daily_trend_scores = {}
-        daily_atr_pcts = {}  # Daily ATR as fraction of price — used for position sizing & stop floor
+        daily_ema_slopes = {}   # +1.0 = EMA(20) rising, -1.0 = falling, 0.0 = insufficient data
+        daily_atr_pcts = {}     # Daily ATR as fraction of price — used for position sizing & stop floor
         for pick in top_picks:
             ticker = pick['ticker']
             if ticker in all_tickers:
@@ -416,6 +420,13 @@ def run_backtest_v2(
                     raw_trend = classic['score']  # 0-100
                     trend_score = round(raw_trend * 0.40, 1)  # Scale to 0-40, matching V1
                     daily_trend_scores[ticker] = trend_score
+                    # EMA(20) slope: is today's 20-day EMA above yesterday's?
+                    # Single clean trend direction signal — replaces composite trend_score gate in momentum.
+                    if len(closes_list) >= 21:
+                        ema20 = pd.Series(closes_list).ewm(span=20, adjust=False).mean()
+                        daily_ema_slopes[ticker] = 1.0 if float(ema20.iloc[-1]) > float(ema20.iloc[-2]) else -1.0
+                    else:
+                        daily_ema_slopes[ticker] = 0.0
                     # Compute daily ATR for position sizing (reuse existing compute_atr)
                     if highs_list and lows_list and len(closes_list) >= 15:
                         from utils.indicators import compute_atr
@@ -424,6 +435,7 @@ def run_backtest_v2(
                             daily_atr_pcts[ticker] = max(daily_atr_val / closes_list[-1], 0.005)
                 else:
                     daily_trend_scores[ticker] = 20.0
+                    daily_ema_slopes[ticker] = 0.0
 
         # ── SPY Market Context: compute once per day, no look-ahead ──
         # spy_trending_down: blocks dip-buy entries in sustained downtrends.
@@ -649,7 +661,7 @@ def run_backtest_v2(
             intraday_regime = _intraday_regime(spy_5m_so_far)
 
             # ── Helper: evaluate one ticker and return a signal dict or None ──
-            def _eval_ticker(ticker, eval_fn, trend_scores):
+            def _eval_ticker(ticker, eval_fn, trend_scores, ema_slopes=None):
                 if ticker in held_tickers:            return None
                 if ticker in daily_stopped_tickers:   return None
                 if ticker in daily_targeted_tickers:  return None  # Already hit target today
@@ -669,6 +681,8 @@ def run_backtest_v2(
                 if atr == 0.0:
                     atr = entry_price * 0.004 if entry_price > 0 else 1.0
                     quant["atr_5m"] = atr
+                if ema_slopes is not None:
+                    quant['ema_slope'] = ema_slopes.get(ticker, 0.0)
                 trend_score = trend_scores.get(ticker, 20.0)
                 entered, reason = eval_fn(quant, trend_score, sparm)
                 if not entered: return None
@@ -691,7 +705,7 @@ def run_backtest_v2(
                 # Momentum entry: bull (full size) + chop (reduced size)
                 # Bear excluded — momentum in a downtrend is a fade trap
                 if intraday_regime in ('bull', 'chop'):
-                    sig = _eval_ticker(ticker, evaluate_momentum_entry, daily_trend_scores)
+                    sig = _eval_ticker(ticker, evaluate_momentum_entry, daily_trend_scores, ema_slopes=daily_ema_slopes)
                     if sig:
                         sig['strategy_type'] = 'momentum'
                         sig['regime_multiplier'] = 1.0 if intraday_regime == 'bull' else 0.6
